@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Tela da TV</title>
+  <style>
+    body { font-family: sans-serif; background: #111; color: white; text-align: center; padding-top: 100px; }
+    h1 { font-size: 3rem; }
+    #status { font-size: 2rem; color: #00ff88; margin-top: 40px; }
+  </style>
+</head>
+<body>
+  <h1>Aguardando interações...</h1>
+  <div id="status">Nenhum botao apertado ainda.</div>
+  <script src="/socket.io/socket.io.js"></script>
+<script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    const statusDiv = document.getElementById('status');
+    
+    // Agora isto é uma lista (objeto) que guarda os pontos de várias pessoas
+    let pontuacao = {};
+
+    socket.on('atualizar_tv', (dados) => {
+      let nome = dados.jogador;
+
+      // Se o jogador for novo, começa com zero pontos
+      if (!pontuacao[nome]) {
+        pontuacao[nome] = 0;
+      }
+
+      // Adiciona 1 ponto apenas a essa pessoa
+      pontuacao[nome]++;
+
+      // Mostra a pontuação específica na TV
+      statusDiv.innerText = nome + " apertou o botão! (Cliques: " + pontuacao[nome] + ")";
+    });
+  </script>
+</body>
+</html>

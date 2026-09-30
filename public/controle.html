@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Controle</title>
+  <style>
+    body { font-family: sans-serif; background: #222; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+    button { width: 80%; height: 150px; font-size: 1.8rem; font-weight: bold; background: #ff0055; color: white; border: none; border-radius: 20px; cursor: pointer; }
+    button:active { background: #cc0044; transform: scale(0.98); }
+  </style>
+</head>
+<body>
+  <button id="btn">APERTAR BOTAO</button>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    const btn = document.getElementById('btn');
+
+    // Pergunta o nome assim que a página abre no celular
+    let nomeDoJogador = prompt("Qual é o seu nome?") || "Anônimo";
+
+    btn.addEventListener('click', () => {
+      // Envia o nome real que a pessoa digitou
+      socket.emit('botao_apertado', { jogador: nomeDoJogador });
+    });
+  </script>
+</body>
+</html>
