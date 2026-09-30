@@ -2,9 +2,8 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Jogo de Desenho - TV (Lobby)</title>
+    <title>Jogo de Desenho - TV</title>
     <script src="/socket.io/socket.io.js"></script>
-    <!-- Biblioteca para gerar QR Code de forma limpa -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
         body {
@@ -15,23 +14,23 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
-            height: 100vh;
-            overflow: hidden;
+            min-height: 100vh;
+            padding: 20px;
+            box-sizing: border-box;
         }
-        h1 { font-size: 2.5rem; margin-bottom: 5px; color: #38bdf8; }
+        h1 { font-size: 2.3rem; margin-bottom: 5px; color: #38bdf8; text-align: center; }
         .lobby-container {
             display: flex;
             width: 90%;
-            max-width: 1200px;
-            gap: 40px;
-            align-items: center;
-            justify-content: space-between;
+            max-width: 1100px;
+            gap: 30px;
+            align-items: stretch;
+            justify-content: center;
             margin-top: 20px;
         }
         .qr-section {
             background: #1e293b;
-            padding: 30px;
+            padding: 25px;
             border-radius: 16px;
             display: flex;
             flex-direction: column;
@@ -40,65 +39,92 @@
         }
         #qrcode {
             background: white;
-            padding: 15px;
+            padding: 12px;
             border-radius: 10px;
             margin-top: 15px;
         }
         .seats-section {
             flex-grow: 1;
             background: #1e293b;
-            padding: 30px;
+            padding: 25px;
             border-radius: 16px;
             box-shadow: 0 10px 25px rgba(0,0,0,0.3);
         }
         .seats-grid {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
-            gap: 15px;
-            margin-top: 20px;
+            gap: 12px;
+            margin-top: 15px;
         }
         .seat {
             background: #334155;
             border: 2px dashed #64748b;
             border-radius: 12px;
-            height: 110px;
+            height: 100px;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             font-size: 0.9rem;
             color: #94a3b8;
-            transition: all 0.3s ease;
         }
         .seat.occupied {
             background: #0284c7;
             border: 2px solid #38bdf8;
             color: white;
             box-shadow: 0 4px 12px rgba(2, 132, 199, 0.4);
-            transform: scale(1.02);
         }
-        .seat .avatar { font-size: 2.2rem; margin-bottom: 5px; }
-        .seat .name { font-weight: bold; font-size: 1.1rem; }
+        .seat .avatar { font-size: 2rem; margin-bottom: 3px; }
+        .seat .name { font-weight: bold; font-size: 1rem; }
+        
+        #start-btn {
+            margin-top: 25px;
+            padding: 14px 40px;
+            background: #22c55e;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 1.25rem;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(34, 197, 94, 0.4);
+            transition: 0.2s;
+        }
+        #start-btn:hover { background: #16a34a; transform: scale(1.02); }
+        
+        #game-screen {
+            display: none;
+            text-align: center;
+            margin-top: 100px;
+        }
     </style>
 </head>
 <body>
 
-    <h1>Sala de Espera - Cinema do Desenho</h1>
-    <p style="color: #94a3b8;">Aponte a câmara do telemóvel para o QR Code para entrar na sala</p>
+    <div id="lobby-screen" style="display: flex; flex-direction: column; align-items: center; width: 100%;">
+        <h1>Sala de Espera - Cinema do Desenho</h1>
+        <p style="color: #94a3b8; margin-top: 0;">Aponte a câmara do telemóvel para o QR Code para entrar na sala</p>
 
-    <div class="lobby-container">
-        <!-- Seção do QR Code -->
-        <div class="qr-section">
-            <h3 style="margin-top:0;">Entrar pelo Telemóvel</h3>
-            <div id="qrcode"></div>
-            <p id="room-url" style="margin-top: 15px; font-size: 0.85rem; color: #38bdf8; word-break: break-all; max-width: 220px; text-align: center;"></p>
+        <div class="lobby-container">
+            <div class="qr-section">
+                <h3 style="margin-top:0;">Entrar pelo Telemóvel</h3>
+                <div id="qrcode"></div>
+                <p id="room-url" style="margin-top: 12px; font-size: 0.8rem; color: #38bdf8; word-break: break-all; max-width: 200px; text-align: center;"></p>
+            </div>
+
+            <div class="seats-section">
+                <h3 style="margin-top:0;">Lugares na Sala (<span id="player-count">0</span>/8)</h3>
+                <div class="seats-grid" id="seats-grid"></div>
+            </div>
         </div>
 
-        <!-- Seção dos Lugares de Cinema -->
-        <div class="seats-section">
-            <h3 style="margin-top:0;">Lugares na Sala (<span id="player-count">0</span>/8)</h3>
-            <div class="seats-grid" id="seats-grid"></div>
-        </div>
+        <button id="start-btn">Iniciar o Jogo</button>
+    </div>
+
+    <div id="game-screen">
+        <h2 style="color: #38bdf8; font-size: 2rem;">Rodada <span id="round-number">1</span> de 6</h2>
+        <p style="font-size: 1.4rem; color: #94a3b8;">Desenhe no telemóvel o tema:</p>
+        <h1 id="theme-display" style="font-size: 2.8rem; color: #facc15; margin-top: 20px;">Carregando...</h1>
     </div>
 
     <script>
@@ -108,8 +134,8 @@
         document.getElementById('room-url').innerText = controlUrl;
         new QRCode(document.getElementById("qrcode"), {
             text: controlUrl,
-            width: 170,
-            height: 170
+            width: 150,
+            height: 150
         });
 
         const seatsGrid = document.getElementById('seats-grid');
@@ -138,6 +164,17 @@
 
         socket.on('update-lobby', (players) => {
             renderSeats(players);
+        });
+
+        document.getElementById('start-btn').addEventListener('click', () => {
+            socket.emit('start-game');
+        });
+
+        socket.on('start-round', (data) => {
+            document.getElementById('lobby-screen').style.display = 'none';
+            document.getElementById('game-screen').style.display = 'block';
+            document.getElementById('round-number').innerText = data.round;
+            document.getElementById('theme-display').innerText = data.theme;
         });
     </script>
 </body>
