@@ -77,21 +77,6 @@
         .seat .avatar { font-size: 2rem; margin-bottom: 3px; }
         .seat .name { font-weight: bold; font-size: 1rem; }
         
-        #start-btn {
-            margin-top: 25px;
-            padding: 14px 40px;
-            background: #22c55e;
-            color: white;
-            border: none;
-            border-radius: 12px;
-            font-size: 1.25rem;
-            font-weight: bold;
-            cursor: pointer;
-            box-shadow: 0 4px 15px rgba(34, 197, 94, 0.4);
-            transition: 0.2s;
-        }
-        #start-btn:hover { background: #16a34a; transform: scale(1.02); }
-        
         #game-screen {
             display: none;
             text-align: center;
@@ -103,7 +88,7 @@
 
     <div id="lobby-screen" style="display: flex; flex-direction: column; align-items: center; width: 100%;">
         <h1>Sala de Espera - Cinema do Desenho</h1>
-        <p style="color: #94a3b8; margin-top: 0;">Aponte a câmara do telemóvel para o QR Code para entrar na sala</p>
+        <p id="tv-status" style="color: #facc15; margin-top: 0; font-size: 1.1rem; font-weight: bold;">Aguardando o Anfitrião iniciar a partida no telemóvel...</p>
 
         <div class="lobby-container">
             <div class="qr-section">
@@ -117,8 +102,6 @@
                 <div class="seats-grid" id="seats-grid"></div>
             </div>
         </div>
-
-        <button id="start-btn">Iniciar o Jogo</button>
     </div>
 
     <div id="game-screen">
@@ -129,7 +112,6 @@
 
     <script>
         const socket = io();
-
         const controlUrl = window.location.origin + '/controle.html';
         document.getElementById('room-url').innerText = controlUrl;
         new QRCode(document.getElementById("qrcode"), {
@@ -143,10 +125,15 @@
             seatsGrid.innerHTML = '';
             document.getElementById('player-count').innerText = players.length;
 
+            if(players.length > 0) {
+                document.getElementById('tv-status').innerText = `Aguardando ${players[0].name} (Anfitrião) iniciar a partida...`;
+            } else {
+                document.getElementById('tv-status').innerText = "Aponte a câmara do telemóvel para o QR Code para entrar na sala";
+            }
+
             for (let i = 0; i < 8; i++) {
                 const seatDiv = document.createElement('div');
                 seatDiv.className = 'seat';
-                
                 if (players[i]) {
                     seatDiv.classList.add('occupied');
                     seatDiv.innerHTML = `
@@ -164,10 +151,6 @@
 
         socket.on('update-lobby', (players) => {
             renderSeats(players);
-        });
-
-        document.getElementById('start-btn').addEventListener('click', () => {
-            socket.emit('start-game');
         });
 
         socket.on('start-round', (data) => {
