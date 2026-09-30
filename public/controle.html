@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Controle - Jogo de Desenho</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
@@ -15,13 +15,14 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            height: 100vh;
-            padding: 20px;
+            min-height: 100vh;
+            padding: 15px;
             box-sizing: border-box;
+            touch-action: none;
         }
         .card {
             background: #1e293b;
-            padding: 25px;
+            padding: 20px;
             border-radius: 16px;
             width: 100%;
             max-width: 380px;
@@ -73,6 +74,34 @@
         }
         button:hover { background: #0284c7dd; }
         #error-msg { color: #f87171; margin-top: 10px; font-size: 0.9rem; }
+
+        /* Tela de Desenho */
+        #drawing-screen {
+            display: none;
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+        .theme-box {
+            background: #1e293b;
+            padding: 12px;
+            border-radius: 10px;
+            margin-bottom: 12px;
+            border: 1px solid #38bdf8;
+        }
+        canvas {
+            background: white;
+            border-radius: 12px;
+            cursor: crosshair;
+            display: block;
+            margin: 0 auto 15px auto;
+            touch-action: none;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        .toolbar {
+            display: flex;
+            gap: 10px;
+        }
     </style>
 </head>
 <body>
@@ -104,7 +133,22 @@
         <h2>Conectado!</h2>
         <div id="user-display" style="font-size: 3.5rem; margin: 15px 0;"></div>
         <p id="welcome-name" style="font-size: 1.25rem; font-weight: bold; color: #38bdf8; margin: 5px 0;"></p>
-        <p style="color: #94a3b8; font-size: 0.95rem; margin-top: 15px;">Olhe para a tela da TV. A partida vai começar em breve...</p>
+        <p style="color: #94a3b8; font-size: 0.95rem; margin-top: 15px;">Aguardando o anfitrião iniciar o jogo na TV...</p>
+    </div>
+
+    <!-- Ecrã de Desenho -->
+    <div id="drawing-screen">
+        <div class="theme-box">
+            <span style="font-size: 0.85rem; color: #94a3b8;">O SEU TEMA:</span>
+            <h3 id="my-theme" style="margin: 5px 0; color: #facc15;">Desenhe algo incrível</h3>
+        </div>
+
+        <canvas id="paintCanvas" width="320" height="380"></canvas>
+
+        <div class="toolbar">
+            <button id="clear-btn" style="background: #ef4444;">Limpar</button>
+            <button id="submit-btn" style="background: #22c55e;">Enviar Desenho</button>
+        </div>
     </div>
 
     <script>
@@ -125,7 +169,6 @@
                 document.getElementById('error-msg').innerText = 'Por favor, digite um apelido!';
                 return;
             }
-
             socket.emit('join-game', { name, avatar: selectedAvatar });
         });
 
@@ -142,6 +185,109 @@
                 document.getElementById('welcome-name').innerText = me.name;
             }
         });
+
+        // Quando o jogo começa ou avança de ronda
+        socket.on('start-round', (data) => {
+            // Garante que se estiver na tela de espera ou voltando de outro estado, exibe o painel de desenho
+            document.getElementById('waiting-screen').style.display = 'none';
+            document.getElementById('drawing-screen').style.display = 'block';
+            
+            // Restaura o layout de desenho caso estivesse no estado de "Aguardando"
+            document.getElementById('drawing-screen').innerHTML = `
+                <div class="theme-box">
+                    <span style="font-size: 0.85rem; color: #94a3b8;">Ronda ${data.round} - TEMA:</span>
+                    <h3 id="my-theme" style="margin: 5px 0; color: #facc15;">${data.theme}</h3>
+                </div>
+                <canvas id="paintCanvas" width="320" height="380"></canvas>
+                <div class="toolbar">
+                    <button id="clear-btn" style="background: #ef4444;">Limpar</button>
+                    <button id="submit-btn" style="background: #22c55e;">Enviar Desenho</button>
+                </div>
+            `;
+
+            initCanvas();
+        });
+
+        // Lógica do Canvas (Desenho tátil e com rato)
+        let canvas, ctx, painting = false;
+
+        function initCanvas() {
+            canvas = document.getElementById('paintCanvas');
+            ctx = canvas.getContext('2d');
+            ctx.strokeStyle = '#0f172a';
+            ctx.lineWidth = 4;
+            ctx.lineCap = 'round';
+
+            // Limpa o fundo para branco
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Eventos do Rato
+            canvas.addEventListener('mousedown', startPosition);
+            canvas.addEventListener('mouseup', finishedPosition);
+            canvas.addEventListener('mousemove', draw);
+
+            // Eventos de Toque (Telemóvel)
+            canvas.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                startPosition(e.touches[0]);
+            });
+            canvas.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                finishedPosition();
+            });
+            canvas.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                draw(e.touches[0]);
+            });
+
+            // Ações dos botões dinâmicos
+            document.getElementById('clear-btn').addEventListener('click', () => {
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            });
+
+            document.getElementById('submit-btn').addEventListener('click', () => {
+                const imageData = canvas.toDataURL('image/png');
+                socket.emit('submit-drawing', imageData);
+                
+                // Transforma a tela em modo de espera após enviar
+                document.getElementById('drawing-screen').innerHTML = `
+                    <div class="card" style="margin-top: 50px;">
+                        <h2>Desenho Enviado! 🚀</h2>
+                        <p style="color: #94a3b8; font-size: 1rem;">Aguardando os outros jogadores terminarem...</p>
+                    </div>
+                `;
+            });
+        }
+
+        function getMousePos(e) {
+            const rect = canvas.getBoundingClientRect();
+            return {
+                x: e.clientX - rect.left,
+                y: e.clientY - rect.top
+            };
+        }
+
+        function startPosition(e) {
+            painting = true;
+            draw(e);
+        }
+
+        function finishedPosition() {
+            painting = false;
+            ctx.beginPath();
+        }
+
+        function draw(e) {
+            if (!painting) return;
+            const pos = getMousePos(e);
+
+            ctx.lineTo(pos.x, pos.y);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(pos.x, pos.y);
+        }
     </script>
 </body>
 </html>
