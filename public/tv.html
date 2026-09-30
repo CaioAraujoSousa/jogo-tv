@@ -1,40 +1,144 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <title>Tela da TV</title>
-  <style>
-    body { font-family: sans-serif; background: #111; color: white; text-align: center; padding-top: 100px; }
-    h1 { font-size: 3rem; }
-    #status { font-size: 2rem; color: #00ff88; margin-top: 40px; }
-  </style>
+    <meta charset="UTF-8">
+    <title>Jogo de Desenho - TV (Lobby)</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <!-- Biblioteca para gerar QR Code de forma limpa -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        body {
+            background-color: #0f172a;
+            color: #ffffff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+        h1 { font-size: 2.5rem; margin-bottom: 5px; color: #38bdf8; }
+        .lobby-container {
+            display: flex;
+            width: 90%;
+            max-width: 1200px;
+            gap: 40px;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 20px;
+        }
+        .qr-section {
+            background: #1e293b;
+            padding: 30px;
+            border-radius: 16px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+        }
+        #qrcode {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 15px;
+        }
+        .seats-section {
+            flex-grow: 1;
+            background: #1e293b;
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+        }
+        .seats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .seat {
+            background: #334155;
+            border: 2px dashed #64748b;
+            border-radius: 12px;
+            height: 110px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9rem;
+            color: #94a3b8;
+            transition: all 0.3s ease;
+        }
+        .seat.occupied {
+            background: #0284c7;
+            border: 2px solid #38bdf8;
+            color: white;
+            box-shadow: 0 4px 12px rgba(2, 132, 199, 0.4);
+            transform: scale(1.02);
+        }
+        .seat .avatar { font-size: 2.2rem; margin-bottom: 5px; }
+        .seat .name { font-weight: bold; font-size: 1.1rem; }
+    </style>
 </head>
 <body>
-  <h1>Aguardando interações...</h1>
-  <div id="status">Nenhum botao apertado ainda.</div>
-  <script src="/socket.io/socket.io.js"></script>
-<script src="/socket.io/socket.io.js"></script>
-  <script>
-    const socket = io();
-    const statusDiv = document.getElementById('status');
-    
-    // Agora isto é uma lista (objeto) que guarda os pontos de várias pessoas
-    let pontuacao = {};
 
-    socket.on('atualizar_tv', (dados) => {
-      let nome = dados.jogador;
+    <h1>Sala de Espera - Cinema do Desenho</h1>
+    <p style="color: #94a3b8;">Aponte a câmara do telemóvel para o QR Code para entrar na sala</p>
 
-      // Se o jogador for novo, começa com zero pontos
-      if (!pontuacao[nome]) {
-        pontuacao[nome] = 0;
-      }
+    <div class="lobby-container">
+        <!-- Seção do QR Code -->
+        <div class="qr-section">
+            <h3 style="margin-top:0;">Entrar pelo Telemóvel</h3>
+            <div id="qrcode"></div>
+            <p id="room-url" style="margin-top: 15px; font-size: 0.85rem; color: #38bdf8; word-break: break-all; max-width: 220px; text-align: center;"></p>
+        </div>
 
-      // Adiciona 1 ponto apenas a essa pessoa
-      pontuacao[nome]++;
+        <!-- Seção dos Lugares de Cinema -->
+        <div class="seats-section">
+            <h3 style="margin-top:0;">Lugares na Sala (<span id="player-count">0</span>/8)</h3>
+            <div class="seats-grid" id="seats-grid"></div>
+        </div>
+    </div>
 
-      // Mostra a pontuação específica na TV
-      statusDiv.innerText = nome + " apertou o botão! (Cliques: " + pontuacao[nome] + ")";
-    });
-  </script>
+    <script>
+        const socket = io();
+
+        const controlUrl = window.location.origin + '/controle.html';
+        document.getElementById('room-url').innerText = controlUrl;
+        new QRCode(document.getElementById("qrcode"), {
+            text: controlUrl,
+            width: 170,
+            height: 170
+        });
+
+        const seatsGrid = document.getElementById('seats-grid');
+        function renderSeats(players) {
+            seatsGrid.innerHTML = '';
+            document.getElementById('player-count').innerText = players.length;
+
+            for (let i = 0; i < 8; i++) {
+                const seatDiv = document.createElement('div');
+                seatDiv.className = 'seat';
+                
+                if (players[i]) {
+                    seatDiv.classList.add('occupied');
+                    seatDiv.innerHTML = `
+                        <div class="avatar">${players[i].avatar}</div>
+                        <div class="name">${players[i].name}</div>
+                    `;
+                } else {
+                    seatDiv.innerHTML = `<span>Lugar ${i + 1}</span><small style="margin-top:4px;">Vazio</small>`;
+                }
+                seatsGrid.appendChild(seatDiv);
+            }
+        }
+
+        renderSeats([]);
+
+        socket.on('update-lobby', (players) => {
+            renderSeats(players);
+        });
+    </script>
 </body>
 </html>

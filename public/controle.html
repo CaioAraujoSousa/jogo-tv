@@ -1,30 +1,147 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Controle</title>
-  <style>
-    body { font-family: sans-serif; background: #222; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-    button { width: 80%; height: 150px; font-size: 1.8rem; font-weight: bold; background: #ff0055; color: white; border: none; border-radius: 20px; cursor: pointer; }
-    button:active { background: #cc0044; transform: scale(0.98); }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Controle - Jogo de Desenho</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        body {
+            background-color: #0f172a;
+            color: #ffffff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .card {
+            background: #1e293b;
+            padding: 25px;
+            border-radius: 16px;
+            width: 100%;
+            max-width: 380px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+        h2 { color: #38bdf8; margin-top: 0; }
+        input {
+            width: 100%;
+            padding: 12px;
+            margin: 15px 0;
+            border-radius: 8px;
+            border: 1px solid #475569;
+            background: #0f172a;
+            color: white;
+            font-size: 1rem;
+            box-sizing: border-box;
+        }
+        .avatars {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin: 15px 0;
+        }
+        .avatar-option {
+            font-size: 2rem;
+            background: #334155;
+            border: 2px solid transparent;
+            border-radius: 8px;
+            cursor: pointer;
+            padding: 8px;
+            transition: 0.2s;
+        }
+        .avatar-option.selected {
+            border-color: #38bdf8;
+            background: #0284c7;
+        }
+        button {
+            width: 100%;
+            padding: 14px;
+            background: #0284c7;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        button:hover { background: #0284c7dd; }
+        #error-msg { color: #f87171; margin-top: 10px; font-size: 0.9rem; }
+    </style>
 </head>
 <body>
-  <button id="btn">APERTAR BOTAO</button>
 
-  <script src="/socket.io/socket.io.js"></script>
-  <script>
-    const socket = io();
-    const btn = document.getElementById('btn');
+    <!-- Ecrã de Login -->
+    <div class="card" id="login-screen">
+        <h2>Entrar na Sala</h2>
+        <p style="color: #94a3b8; font-size: 0.9rem;">Escolha o seu apelido e um avatar:</p>
+        
+        <input type="text" id="nickname" placeholder="Seu apelido..." maxlength="12">
+        
+        <div class="avatars" id="avatar-grid">
+            <div class="avatar-option selected" data-avatar="🦊">🦊</div>
+            <div class="avatar-option" data-avatar="🐼">🐼</div>
+            <div class="avatar-option" data-avatar="🐱">🐱</div>
+            <div class="avatar-option" data-avatar="🐶">🐶</div>
+            <div class="avatar-option" data-avatar="🦁">🦁</div>
+            <div class="avatar-option" data-avatar="🦄">🦄</div>
+            <div class="avatar-option" data-avatar="🤖">🤖</div>
+            <div class="avatar-option" data-avatar="🚀">🚀</div>
+        </div>
 
-    // Pergunta o nome assim que a página abre no celular
-    let nomeDoJogador = prompt("Qual é o seu nome?") || "Anônimo";
+        <button id="join-btn">Entrar no Jogo</button>
+        <div id="error-msg"></div>
+    </div>
 
-    btn.addEventListener('click', () => {
-      // Envia o nome real que a pessoa digitou
-      socket.emit('botao_apertado', { jogador: nomeDoJogador });
-    });
-  </script>
+    <!-- Ecrã de Espera -->
+    <div class="card" id="waiting-screen" style="display: none;">
+        <h2>Conectado!</h2>
+        <div id="user-display" style="font-size: 3.5rem; margin: 15px 0;"></div>
+        <p id="welcome-name" style="font-size: 1.25rem; font-weight: bold; color: #38bdf8; margin: 5px 0;"></p>
+        <p style="color: #94a3b8; font-size: 0.95rem; margin-top: 15px;">Olhe para a tela da TV. A partida vai começar em breve...</p>
+    </div>
+
+    <script>
+        const socket = io();
+        let selectedAvatar = '🦊';
+
+        document.querySelectorAll('.avatar-option').forEach(item => {
+            item.addEventListener('click', (e) => {
+                document.querySelectorAll('.avatar-option').forEach(a => a.classList.remove('selected'));
+                e.target.classList.add('selected');
+                selectedAvatar = e.target.getAttribute('data-avatar');
+            });
+        });
+
+        document.getElementById('join-btn').addEventListener('click', () => {
+            const name = document.getElementById('nickname').value.trim();
+            if (!name) {
+                document.getElementById('error-msg').innerText = 'Por favor, digite um apelido!';
+                return;
+            }
+
+            socket.emit('join-game', { name, avatar: selectedAvatar });
+        });
+
+        socket.on('error-message', (msg) => {
+            document.getElementById('error-msg').innerText = msg;
+        });
+
+        socket.on('update-lobby', (players) => {
+            const me = players.find(p => p.id === socket.id);
+            if (me) {
+                document.getElementById('login-screen').style.display = 'none';
+                document.getElementById('waiting-screen').style.display = 'block';
+                document.getElementById('user-display').innerText = me.avatar;
+                document.getElementById('welcome-name').innerText = me.name;
+            }
+        });
+    </script>
 </body>
 </html>
