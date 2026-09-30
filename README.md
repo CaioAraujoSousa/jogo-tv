@@ -14,4 +14,4 @@ A comunicação funciona através de eventos. O smartphone envia um sinal (`bota
 ## 🛠️ Como rodar localmente
 1. Clone este repositório:
    ```bash
-   git clone [https://github.com/SEU_USUARIO/jogo-tv.git](https://github.com/SEU_USUARIO/jogo-tv.git)
+   git clone https://github.com/CaioAraujoSousa/jogo-tv.git
