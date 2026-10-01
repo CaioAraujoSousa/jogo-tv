@@ -1,0 +1,72 @@
+body {
+    background-color: #0f172a;
+    color: #ffffff;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 15px;
+    box-sizing: border-box;
+    touch-action: none;
+}
+.card {
+    background: #1e293b;
+    padding: 20px;
+    border-radius: 16px;
+    width: 100%;
+    max-width: 380px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+    text-align: center;
+}
+h2 { color: #38bdf8; margin-top: 0; }
+input {
+    width: 100%;
+    padding: 12px;
+    margin: 15px 0;
+    border-radius: 8px;
+    border: 1px solid #475569;
+    background: #0f172a;
+    color: white;
+    font-size: 1rem;
+    box-sizing: border-box;
+}
+.avatars {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin: 15px 0;
+}
+.avatar-option {
+    font-size: 2rem;
+    background: #334155;
+    border: 2px solid transparent;
+    border-radius: 8px;
+    cursor: pointer;
+    padding: 8px;
+    transition: 0.2s;
+}
+.avatar-option.selected {
+    border-color: #38bdf8;
+    background: #0284c7;
+}
+button {
+    width: 100%;
+    padding: 14px;
+    background: #0284c7;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 1.1rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: 0.2s;
+}
+button:hover { background: #0284c7dd; }
+#error-msg { color: #f87171; margin-top: 10px; font-size: 0.9rem; }
+#drawing-screen { display: none; width: 100%; max-width: 400px; text-align: center; }
+.theme-box { background: #1e293b; padding: 12px; border-radius: 10px; margin-bottom: 12px; border: 1px solid #38bdf8; }
+canvas { background: white; border-radius: 12px; cursor: crosshair; display: block; margin: 0 auto 15px auto; touch-action: none; box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
+.toolbar { display: flex; gap: 10px; }

@@ -5,29 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Controle - Jogo de Desenho</title>
     <script src="/socket.io/socket.io.js"></script>
-    <style>
-        body { background-color: #0f172a; color: #ffffff; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 15px; box-sizing: border-box; touch-action: none; }
-        .card { background: #1e293b; padding: 20px; border-radius: 16px; width: 100%; max-width: 380px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); text-align: center; }
-        h2 { color: #38bdf8; margin-top: 0; }
-        input { width: 100%; padding: 12px; margin: 15px 0; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: white; font-size: 1rem; box-sizing: border-box; }
-        .avatars { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 15px 0; }
-        .avatar-option { font-size: 2rem; background: #334155; border: 2px solid transparent; border-radius: 8px; cursor: pointer; padding: 8px; transition: 0.2s; }
-        .avatar-option.selected { border-color: #38bdf8; background: #0284c7; }
-        button { width: 100%; padding: 14px; background: #0284c7; color: white; border: none; border-radius: 8px; font-size: 1.1rem; font-weight: bold; cursor: pointer; transition: 0.2s; }
-        button:hover { background: #0284c7dd; }
-        #error-msg { color: #f87171; margin-top: 10px; font-size: 0.9rem; }
-        #drawing-screen { display: none; width: 100%; max-width: 400px; text-align: center; }
-        .theme-box { background: #1e293b; padding: 12px; border-radius: 10px; margin-bottom: 12px; border: 1px solid #38bdf8; }
-        canvas { background: white; border-radius: 12px; cursor: crosshair; display: block; margin: 0 auto 15px auto; touch-action: none; box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
-        .toolbar { display: flex; gap: 10px; }
-    </style>
+    <link rel="stylesheet" href="/css/controle.css">
 </head>
 <body>
 
     <div class="card" id="login-screen">
         <h2>Entrar na Sala</h2>
         <p style="color: #94a3b8; font-size: 0.9rem;">Escolha o seu apelido e um avatar:</p>
+        
         <input type="text" id="nickname" placeholder="Seu apelido..." maxlength="12">
+        
         <div class="avatars" id="avatar-grid">
             <div class="avatar-option selected" data-avatar="🦊">🦊</div>
             <div class="avatar-option" data-avatar="🐼">🐼</div>
@@ -38,6 +25,7 @@
             <div class="avatar-option" data-avatar="🤖">🤖</div>
             <div class="avatar-option" data-avatar="🚀">🚀</div>
         </div>
+
         <button id="join-btn">Entrar no Jogo</button>
         <div id="error-msg"></div>
     </div>
@@ -47,7 +35,6 @@
         <div id="user-display" style="font-size: 3.5rem; margin: 15px 0;"></div>
         <p id="welcome-name" style="font-size: 1.25rem; font-weight: bold; color: #38bdf8; margin: 5px 0;"></p>
         
-        <!-- Controlos de Anfitrião -->
         <div id="host-controls" style="display: none; margin-top: 20px;">
             <p style="color: #facc15; font-weight: bold; margin-bottom: 10px;">Você é o Anfitrião! 👑</p>
             <button id="start-btn-mobile" style="background: #22c55e;">Iniciar Partida</button>
@@ -59,127 +46,6 @@
         <!-- Injetado dinamicamente pelo JS -->
     </div>
 
-    <script>
-        const socket = io();
-        let selectedAvatar = '🦊';
-
-        document.querySelectorAll('.avatar-option').forEach(item => {
-            item.addEventListener('click', (e) => {
-                document.querySelectorAll('.avatar-option').forEach(a => a.classList.remove('selected'));
-                e.target.classList.add('selected');
-                selectedAvatar = e.target.getAttribute('data-avatar');
-            });
-        });
-
-        document.getElementById('join-btn').addEventListener('click', () => {
-            const name = document.getElementById('nickname').value.trim();
-            if (!name) {
-                document.getElementById('error-msg').innerText = 'Por favor, digite um apelido!';
-                return;
-            }
-            socket.emit('join-game', { name, avatar: selectedAvatar });
-        });
-
-        socket.on('error-message', (msg) => {
-            document.getElementById('error-msg').innerText = msg;
-        });
-
-        socket.on('update-lobby', (players) => {
-            const me = players.find(p => p.id === socket.id);
-            if (me) {
-                document.getElementById('login-screen').style.display = 'none';
-                document.getElementById('waiting-screen').style.display = 'block';
-                document.getElementById('user-display').innerText = me.avatar;
-                document.getElementById('welcome-name').innerText = me.name;
-
-                // Lógica Dinâmica do Anfitrião
-                const isHost = players.length > 0 && players[0].id === socket.id;
-                
-                if (isHost) {
-                    document.getElementById('host-controls').style.display = 'block';
-                    document.getElementById('waiting-msg').style.display = 'none';
-                } else {
-                    document.getElementById('host-controls').style.display = 'none';
-                    document.getElementById('waiting-msg').style.display = 'block';
-                    document.getElementById('waiting-msg').innerText = `Aguardando ${players[0].name} iniciar a partida...`;
-                }
-            }
-        });
-
-        // Botão para Iniciar o Jogo pelo Telemóvel
-        document.getElementById('start-btn-mobile').addEventListener('click', () => {
-            socket.emit('start-game');
-        });
-
-        socket.on('start-round', (data) => {
-            document.getElementById('waiting-screen').style.display = 'none';
-            document.getElementById('drawing-screen').style.display = 'block';
-            
-            document.getElementById('drawing-screen').innerHTML = `
-                <div class="theme-box">
-                    <span style="font-size: 0.85rem; color: #94a3b8;">Ronda ${data.round} de 6 - TEMA:</span>
-                    <h3 id="my-theme" style="margin: 5px 0; color: #facc15;">${data.theme}</h3>
-                </div>
-                <canvas id="paintCanvas" width="320" height="380"></canvas>
-                <div class="toolbar">
-                    <button id="clear-btn" style="background: #ef4444;">Limpar</button>
-                    <button id="submit-btn" style="background: #22c55e;">Enviar Desenho</button>
-                </div>
-            `;
-            initCanvas();
-        });
-
-        let canvas, ctx, painting = false;
-
-        function initCanvas() {
-            canvas = document.getElementById('paintCanvas');
-            ctx = canvas.getContext('2d');
-            ctx.strokeStyle = '#0f172a';
-            ctx.lineWidth = 4;
-            ctx.lineCap = 'round';
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            canvas.addEventListener('mousedown', startPosition);
-            canvas.addEventListener('mouseup', finishedPosition);
-            canvas.addEventListener('mousemove', draw);
-
-            canvas.addEventListener('touchstart', (e) => { e.preventDefault(); startPosition(e.touches[0]); });
-            canvas.addEventListener('touchend', (e) => { e.preventDefault(); finishedPosition(); });
-            canvas.addEventListener('touchmove', (e) => { e.preventDefault(); draw(e.touches[0]); });
-
-            document.getElementById('clear-btn').addEventListener('click', () => {
-                ctx.fillStyle = '#ffffff';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-            });
-
-            document.getElementById('submit-btn').addEventListener('click', () => {
-                const imageData = canvas.toDataURL('image/png');
-                socket.emit('submit-drawing', imageData);
-                
-                document.getElementById('drawing-screen').innerHTML = `
-                    <div class="card" style="margin-top: 50px;">
-                        <h2>Desenho Enviado! 🚀</h2>
-                        <p style="color: #94a3b8; font-size: 1rem;">Aguardando os outros jogadores terminarem...</p>
-                    </div>
-                `;
-            });
-        }
-
-        function getMousePos(e) {
-            const rect = canvas.getBoundingClientRect();
-            return { x: e.clientX - rect.left, y: e.clientY - rect.top };
-        }
-        function startPosition(e) { painting = true; draw(e); }
-        function finishedPosition() { painting = false; ctx.beginPath(); }
-        function draw(e) {
-            if (!painting) return;
-            const pos = getMousePos(e);
-            ctx.lineTo(pos.x, pos.y);
-            ctx.stroke();
-            ctx.beginPath();
-            ctx.moveTo(pos.x, pos.y);
-        }
-    </script>
+    <script src="/js/controle.js"></script>
 </body>
 </html>
