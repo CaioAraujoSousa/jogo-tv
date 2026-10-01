@@ -26,4 +26,12 @@ const allThemes = [
     ...categories.animals
 ];
 
-module.exports = { categories, allThemes };
+// A FUNÇÃO QUE ESTAVA FALTANDO!
+// Ela embaralha a lista completa e pega a quantidade exata de temas solicitada (neste caso, 6)
+function getRandomThemes(count) {
+    const shuffled = [...allThemes].sort(() => 0.5 - Math.random());
+    return shuffled.slice(0, count);
+}
+
+// Exporta a função corretamente para o server.js
+module.exports = { getRandomThemes };
