@@ -2,42 +2,44 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Jogo de Desenho - TV</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cinema do Desenho - TV</title>
     <script src="/socket.io/socket.io.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <link rel="stylesheet" href="/css/tv.css">
 </head>
 <body>
-
-    <div id="lobby-screen" style="display: flex; flex-direction: column; align-items: center; width: 100%;">
-        <h1>Sala de Espera - Cinema do Desenho</h1>
-        <p id="tv-status" style="color: #facc15; margin-top: 0; font-size: 1.1rem; font-weight: bold;">Aguardando o Anfitrião iniciar a partida no telemóvel...</p>
-
+    <div id="lobby-screen">
+        <h1>Cinema do Desenho 🎨</h1>
+        <p id="tv-status" style="text-align: center; color: #94a3b8;">Aguardando jogadores...</p>
+        
         <div class="lobby-container">
             <div class="qr-section">
-                <h3 style="margin-top:0;">Entrar pelo Telemóvel</h3>
+                <h3 style="margin: 0; color: #38bdf8;">Conecte seu celular</h3>
+                <p id="room-url" style="font-size: 0.8rem; color: #64748b; margin: 5px 0 10px 0;"></p>
                 <div id="qrcode"></div>
-                <p id="room-url" style="margin-top: 12px; font-size: 0.8rem; color: #38bdf8; word-break: break-all; max-width: 200px; text-align: center;"></p>
             </div>
-
+            
             <div class="seats-section">
-                <h3 style="margin-top:0;">Lugares na Sala (<span id="player-count">0</span>/8)</h3>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <h3 style="margin: 0; color: #38bdf8;">Jogadores Conectados</h3>
+                    <span style="background: #0284c7; padding: 4px 12px; border-radius: 12px; font-weight: bold; font-size: 0.9rem;"><span id="player-count">0</span>/8</span>
+                </div>
                 <div class="seats-grid" id="seats-grid"></div>
             </div>
         </div>
     </div>
 
     <div id="game-screen">
-        <h2 style="color: #38bdf8; font-size: 2rem;">Rodada <span id="round-number">1</span> de 6</h2>
-        <p style="font-size: 1.4rem; color: #94a3b8;">Desenhe no telemóvel o tema:</p>
-        <h1 id="theme-display" style="font-size: 2.8rem; color: #facc15; margin-top: 20px;">Carregando...</h1>
+        <p style="color: #94a3b8; font-size: 1.2rem; margin: 0;">Rodada <span id="round-number">1</span> de 6</p>
+        <h1 id="theme-display" style="color: #facc15; font-size: 2.5rem; margin: 10px 0;">Desenhe algo incrível!</h1>
+        <p style="color: #38bdf8;">Olhe para a tela do seu celular e faça o seu melhor desenho!</p>
     </div>
 
     <div id="presentation-screen">
-        <h2 style="color: #facc15; font-size: 2.2rem; margin-bottom: 5px;">Fim do Bloco! Vamos ver as obras de arte 🎨</h2>
         <div id="presentation-container"></div>
     </div>
 
-    <script src="/js/tv.js"></script>
+    <script type="module" src="/js/tv.js"></script>
 </body>
 </html>
