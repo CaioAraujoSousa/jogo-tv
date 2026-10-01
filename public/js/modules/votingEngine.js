@@ -11,7 +11,7 @@ export function renderVotingScreen(container, data, socket) {
     const title = document.createElement('h2');
     title.style.color = '#facc15';
     title.style.marginBottom = '5px';
-    title.textContent = `Votação • Rodada ${data.round}`;
+    title.textContent = 'Votação • Rodada ' + data.round;
 
     const subtitle = document.createElement('p');
     subtitle.style.color = '#94a3b8';
@@ -26,7 +26,7 @@ export function renderVotingScreen(container, data, socket) {
     sendBtn.style.marginTop = '15px';
 
     function updateUI() {
-        subtitle.textContent = `Escolha os seus favoritos por ordem (\({selectedVotes.length}/\){maxVotes})`;
+        subtitle.textContent = 'Escolha os seus favoritos por ordem (' + selectedVotes.length + '/' + maxVotes + ')';
         grid.innerHTML = '';
 
         data.cards.forEach((card) => {
@@ -45,7 +45,7 @@ export function renderVotingScreen(container, data, socket) {
             }
 
             const labelSpan = document.createElement('span');
-            labelSpan.textContent = `Desenho ${card.number}`;
+            labelSpan.textContent = 'Desenho ' + card.number;
             btn.appendChild(labelSpan);
 
             if (isMyDrawing) {
@@ -56,7 +56,7 @@ export function renderVotingScreen(container, data, socket) {
             } else if (isSelected) {
                 const badge = document.createElement('span');
                 badge.className = 'vote-badge';
-                badge.textContent = `${voteIndex + 1}º Lugar`;
+                badge.textContent = (voteIndex + 1) + 'º Lugar';
                 btn.appendChild(badge);
             }
 
@@ -85,11 +85,13 @@ export function renderVotingScreen(container, data, socket) {
             sendBtn.disabled = false;
             sendBtn.style.background = '#22c55e';
             sendBtn.style.opacity = '1';
+            sendBtn.style.cursor = 'pointer';
         } else {
-            sendBtn.textContent = `Selecione ${remaining} preferência(s)`;
+            sendBtn.textContent = 'Selecione ' + remaining + ' preferência(s)';
             sendBtn.disabled = true;
             sendBtn.style.background = '#64748b';
             sendBtn.style.opacity = '0.5';
+            sendBtn.style.cursor = 'not-allowed';
         }
     }
 
