@@ -104,11 +104,25 @@ function proceedToNextStep() {
     if (currentRound < 3) {
         startRound(currentRound + 1);
     } else if (currentRound === 3) {
-        io.emit('show-voting-phase', { block: 1, drawings: gameState.drawings });
+        console.log('Fim do Bloco 1. Enviando desenhos para a TV...');
+        io.emit('show-presentation', { 
+            block: 1, 
+            rounds: [1, 2, 3], 
+            themes: gameState.matchThemes.slice(0, 3), 
+            drawings: gameState.drawings,
+            players: players
+        });
     } else if (currentRound > 3 && currentRound < 6) {
         startRound(currentRound + 1);
     } else if (currentRound === 6) {
-        io.emit('show-voting-phase', { block: 2, drawings: gameState.drawings });
+        console.log('Fim do Bloco 2. Enviando desenhos para a TV...');
+        io.emit('show-presentation', { 
+            block: 2, 
+            rounds: [4, 5, 6], 
+            themes: gameState.matchThemes.slice(3, 6), 
+            drawings: gameState.drawings,
+            players: players
+        });
     }
 }
 

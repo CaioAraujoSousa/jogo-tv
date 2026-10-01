@@ -1,11 +1,11 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <title>Jogo de Desenho - TV</title>
-    <script src="/socket.io/socket.io.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <style>
+«!DOCTYPE html»
+«html lang="pt-BR"»
+«head»
+    «meta charset="UTF-8"»
+    «title»Jogo de Desenho - TV«/title»
+    «script src="/socket.io/socket.io.js"»«/script»
+    «script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"»«/script»
+    «style»
         body {
             background-color: #0f172a;
             color: #ffffff;
@@ -77,40 +77,80 @@
         .seat .avatar { font-size: 2rem; margin-bottom: 3px; }
         .seat .name { font-weight: bold; font-size: 1rem; }
         
-        #game-screen {
+        #game-screen, #presentation-screen {
             display: none;
             text-align: center;
-            margin-top: 100px;
+            margin-top: 40px;
+            width: 100%;
+            max-width: 800px;
         }
-    </style>
-</head>
-<body>
+        .drawing-card {
+            background: #1e293b;
+            padding: 25px;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+            margin-top: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .drawing-card img {
+            background: white;
+            border-radius: 12px;
+            width: 320px;
+            height: 380px;
+            object-fit: contain;
+            margin: 15px 0;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        .next-presentation-btn {
+            margin-top: 25px;
+            padding: 12px 30px;
+            background: #38bdf8;
+            color: #0f172a;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .next-presentation-btn:hover { background: #7dd3fc; }
+    «/style»
+«/head»
+«body»
 
-    <div id="lobby-screen" style="display: flex; flex-direction: column; align-items: center; width: 100%;">
-        <h1>Sala de Espera - Cinema do Desenho</h1>
-        <p id="tv-status" style="color: #facc15; margin-top: 0; font-size: 1.1rem; font-weight: bold;">Aguardando o Anfitrião iniciar a partida no telemóvel...</p>
+    «div id="lobby-screen" style="display: flex; flex-direction: column; align-items: center; width: 100%;"»
+        «h1»Sala de Espera - Cinema do Desenho«/h1»
+        «p id="tv-status" style="color: #facc15; margin-top: 0; font-size: 1.1rem; font-weight: bold;"»Aguardando o Anfitrião iniciar a partida no telemóvel...«/p»
 
-        <div class="lobby-container">
-            <div class="qr-section">
-                <h3 style="margin-top:0;">Entrar pelo Telemóvel</h3>
-                <div id="qrcode"></div>
-                <p id="room-url" style="margin-top: 12px; font-size: 0.8rem; color: #38bdf8; word-break: break-all; max-width: 200px; text-align: center;"></p>
-            </div>
+        «div class="lobby-container"»
+            «div class="qr-section"»
+                «h3 style="margin-top:0;"»Entrar pelo Telemóvel«/h3»
+                «div id="qrcode"»«/div»
+                «p id="room-url" style="margin-top: 12px; font-size: 0.8rem; color: #38bdf8; word-break: break-all; max-width: 200px; text-align: center;"»«/p»
+            «/div»
 
-            <div class="seats-section">
-                <h3 style="margin-top:0;">Lugares na Sala (<span id="player-count">0</span>/8)</h3>
-                <div class="seats-grid" id="seats-grid"></div>
-            </div>
-        </div>
-    </div>
+            «div class="seats-section"»
+                «h3 style="margin-top:0;"»Lugares na Sala («span id="player-count"»0«/span»/8)«/h3»
+                «div class="seats-grid" id="seats-grid"»«/div»
+            «/div»
+        «/div»
+    «/div»
 
-    <div id="game-screen">
-        <h2 style="color: #38bdf8; font-size: 2rem;">Rodada <span id="round-number">1</span> de 6</h2>
-        <p style="font-size: 1.4rem; color: #94a3b8;">Desenhe no telemóvel o tema:</p>
-        <h1 id="theme-display" style="font-size: 2.8rem; color: #facc15; margin-top: 20px;">Carregando...</h1>
-    </div>
+    «div id="game-screen"»
+        «h2 style="color: #38bdf8; font-size: 2rem;"»Rodada «span id="round-number"»1«/span» de 6«/h2»
+        «p style="font-size: 1.4rem; color: #94a3b8;"»Desenhe no telemóvel o tema:«/p»
+        «h1 id="theme-display" style="font-size: 2.8rem; color: #facc15; margin-top: 20px;"»Carregando...«/h1»
+    «/div»
 
-    <script>
+    «!-- Ecrã de Apresentação dos Desenhos (Fim do Bloco) --»
+    «div id="presentation-screen"»
+        «h2 style="color: #facc15; font-size: 2.2rem; margin-bottom: 5px;"»Fim do Bloco! Vamos ver as obras de arte 🎨«/h2»
+        «div id="presentation-container"»«/div»
+    «/div»
+
+    «script»
         const socket = io();
         const controlUrl = window.location.origin + '/controle.html';
         document.getElementById('room-url').innerText = controlUrl;
@@ -137,11 +177,11 @@
                 if (players[i]) {
                     seatDiv.classList.add('occupied');
                     seatDiv.innerHTML = `
-                        <div class="avatar">${players[i].avatar}</div>
-                        <div class="name">${players[i].name}</div>
+                        «div class="avatar"»${players[i].avatar}«/div»
+                        «div class="name"»${players[i].name}«/div»
                     `;
                 } else {
-                    seatDiv.innerHTML = `<span>Lugar ${i + 1}</span><small style="margin-top:4px;">Vazio</small>`;
+                    seatDiv.innerHTML = `«span»Lugar ${i + 1}«/span»«small style="margin-top:4px;"»Vazio«/small»`;
                 }
                 seatsGrid.appendChild(seatDiv);
             }
@@ -156,9 +196,64 @@
         socket.on('start-round', (data) => {
             document.getElementById('lobby-screen').style.display = 'none';
             document.getElementById('game-screen').style.display = 'block';
+            document.getElementById('presentation-screen').style.display = 'none';
             document.getElementById('round-number').innerText = data.round;
             document.getElementById('theme-display').innerText = data.theme;
         });
-    </script>
-</body>
-</html>
+
+        // Evento para mostrar a apresentação dos desenhos na TV
+        socket.on('show-presentation', (data) => {
+            document.getElementById('game-screen').style.display = 'none';
+            document.getElementById('presentation-screen').style.display = 'block';
+
+            const container = document.getElementById('presentation-container');
+            container.innerHTML = '';
+
+            // Monta uma lista plana de todos os slides (cada desenho de cada ronda)
+            let slides = [];
+            data.rounds.forEach((roundNum, index) => {
+                const theme = data.themes[index];
+                const roundDrawings = data.drawings[roundNum] || {};
+
+                for (let playerId in roundDrawings) {
+                    const player = data.players.find(p => p.id === playerId);
+                    slides.push({
+                        round: roundNum,
+                        theme: theme,
+                        player: player ? player.name : 'Jogador Desconhecido',
+                        avatar: player ? player.avatar : '🎨',
+                        image: roundDrawings[playerId]
+                    });
+                }
+            });
+
+            let currentSlideIndex = 0;
+
+            function renderSlide() {
+                if (currentSlideIndex >= slides.length) {
+                    container.innerHTML = `«h3 style="color: #38bdf8; margin-top: 40px;"»Fim da apresentação deste bloco! Próxima fase em breve...«/h3»`;
+                    return;
+                }
+
+                const slide = slides[currentSlideIndex];
+                container.innerHTML = `
+                    «div class="drawing-card"»
+                        «p style="color: #94a3b8; margin: 0; font-size: 1rem;"»Rodada ${slide.round} • Tema:«/p»
+                        «h3 style="color: #facc15; margin: 8px 0 15px 0; font-size: 1.6rem;"»${slide.theme}«/h3»
+                        «div style="font-size: 1.3rem; font-weight: bold; margin-bottom: 5px;"»\({slide.avatar}\){slide.player}«/div»
+                        «img src="${slide.image}" alt="Desenho"»
+                        «button class="next-presentation-btn" id="next-slide-btn"»Seguinte ➔«/button»
+                    «/div»
+                `;
+
+                document.getElementById('next-slide-btn').addEventListener('click', () => {
+                    currentSlideIndex++;
+                    renderSlide();
+                });
+            }
+
+            renderSlide();
+        });
+    «/script»
+«/body»
+«/html»
