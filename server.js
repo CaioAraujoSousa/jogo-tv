@@ -66,6 +66,13 @@ io.on('connection', (socket) => {
         }
     });
 
+    socket.on('return-to-lobby', () => {
+        if (gameState.players.length === 0) return;
+        if (gameState.players[0].id !== socket.id) return;
+
+        gameState.returnToLobby();
+        io.emit('back-to-lobby', gameState.players);
+    });
     socket.on('disconnect', () => {
         gameState.removePlayer(socket.id);
         io.emit('update-lobby', gameState.players);

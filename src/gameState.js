@@ -32,6 +32,17 @@ class GameState {
         this.votes = {};
     }
 
+    // Adicionar dentro da classe GameState no arquivo src/gameState.js
+    returnToLobby() {
+        this.isStarted = false;
+        this.currentRound = 0;
+        this.currentVotingRound = 0;
+        this.matchThemes = [];
+        this.drawings = {};
+        this.votes = {};
+        this.players.forEach(p => p.score = 0);
+    }
+
     reset() {
         this.players = [];
         this.isStarted = false;

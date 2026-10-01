@@ -3,6 +3,7 @@ import { renderVotingScreen } from './modules/votingEngine.js';
 
 const socket = io();
 let selectedAvatar = '🦊';
+let isHost = false;
 
 document.querySelectorAll('.avatar-option').forEach(item => {
     item.addEventListener('click', (e) => {
@@ -33,7 +34,7 @@ socket.on('update-lobby', (players) => {
         document.getElementById('user-display').innerText = me.avatar;
         document.getElementById('welcome-name').innerText = me.name;
 
-        const isHost = players.length > 0 && players[0].id === socket.id;
+        isHost = players.length > 0 && players[0].id === socket.id;
         
         if (isHost) {
             document.getElementById('host-controls').style.display = 'block';
@@ -41,7 +42,7 @@ socket.on('update-lobby', (players) => {
         } else {
             document.getElementById('host-controls').style.display = 'none';
             document.getElementById('waiting-msg').style.display = 'block';
-            document.getElementById('waiting-msg').innerText = `Aguardando ${players[0].name} iniciar a partida...`;
+            document.getElementById('waiting-msg').innerText = 'Aguardando ' + players[0].name + ' iniciar a partida...';
         }
     }
 });
@@ -60,14 +61,13 @@ socket.on('start-round', (data) => {
     drawingScreen.style.display = 'block';
     drawingScreen.innerHTML = '';
 
-    // Caixas de texto do tema
     const themeBox = document.createElement('div');
     themeBox.className = 'theme-box';
 
     const roundSpan = document.createElement('span');
     roundSpan.style.fontSize = '0.85rem';
     roundSpan.style.color = '#94a3b8';
-    roundSpan.textContent = `Rodada ${data.round} de 6 - TEMA:`;
+    roundSpan.textContent = 'Rodada ' + data.round + ' de 6 - TEMA:';
 
     const themeTitle = document.createElement('h3');
     themeTitle.id = 'my-theme';
@@ -78,13 +78,11 @@ socket.on('start-round', (data) => {
     themeBox.appendChild(roundSpan);
     themeBox.appendChild(themeTitle);
 
-    // Canvas de desenho
     const canvas = document.createElement('canvas');
     canvas.id = 'paintCanvas';
     canvas.width = 320;
     canvas.height = 380;
 
-    // Botões
     const toolbar = document.createElement('div');
     toolbar.className = 'toolbar';
 
@@ -105,10 +103,8 @@ socket.on('start-round', (data) => {
     drawingScreen.appendChild(canvas);
     drawingScreen.appendChild(toolbar);
 
-    // Inicializa a lógica de desenho do módulo
     initCanvas(canvas, clearBtn, submitBtn, socket);
 
-    // Ecrã de confirmação ao clicar em Enviar
     submitBtn.addEventListener('click', () => {
         drawingScreen.innerHTML = '';
         
@@ -143,11 +139,10 @@ socket.on('start-voting-round', (data) => {
     }
     votingScreen.style.display = 'block';
 
-    // Delega o render da votação para o módulo
     renderVotingScreen(votingScreen, data, socket);
 });
 
-// Adicionar no final do public/js/controle.js
+// FIM DE JOGO
 socket.on('game-over', (leaderboard) => {
     document.getElementById('waiting-screen').style.display = 'none';
     document.getElementById('drawing-screen').style.display = 'none';
@@ -176,7 +171,12 @@ socket.on('game-over', (leaderboard) => {
     p1.style.fontSize = '1.3rem';
     p1.style.fontWeight = 'bold';
     p1.style.color = '#38bdf8';
-    p1.textContent = me ? `\({myRank}º Lugar (\){me.score} pts)` : 'Partida Encerrada';
+
+    if (me) {
+        p1.textContent = myRank + 'º Lugar (' + me.score + ' pts)';
+    } else {
+        p1.textContent = 'Partida Encerrada';
+    }
 
     const p2 = document.createElement('p');
     p2.style.color = '#94a3b8';
@@ -185,5 +185,36 @@ socket.on('game-over', (leaderboard) => {
     card.appendChild(h2);
     card.appendChild(p1);
     card.appendChild(p2);
+
+    // Botão de retorno exclusivo do Anfitrião
+    if (isHost) {
+        const restartBtn = document.createElement('button');
+        restartBtn.style.marginTop = '20px';
+        restartBtn.style.background = '#22c55e';
+        restartBtn.textContent = 'Voltar ao Lobby 🔄';
+        restartBtn.addEventListener('click', () => {
+            socket.emit('return-to-lobby');
+        });
+        card.appendChild(restartBtn);
+    }
+
     votingScreen.appendChild(card);
+});
+
+// RETORNO AO LOBBY
+socket.on('back-to-lobby', (players) => {
+    const votingScreen = document.getElementById('voting-screen');
+    if (votingScreen) votingScreen.style.display = 'none';
+    document.getElementById('drawing-screen').style.display = 'none';
+    document.getElementById('waiting-screen').style.display = 'block';
+
+    const me = players.find(p => p.id === socket.id);
+    if (me) {
+        isHost = players.length > 0 && players[0].id === socket.id;
+        document.getElementById('host-controls').style.display = isHost ? 'block' : 'none';
+        document.getElementById('waiting-msg').style.display = isHost ? 'none' : 'block';
+        if (!isHost) {
+            document.getElementById('waiting-msg').innerText = 'Aguardando ' + players[0].name + ' iniciar a partida...';
+        }
+    }
 });

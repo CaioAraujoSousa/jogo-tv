@@ -225,3 +225,10 @@ function createPillar(player, rank, type) {
     pillar.appendChild(score);
     return pillar;
 }
+
+socket.on('back-to-lobby', (players) => {
+    document.getElementById('presentation-screen').style.display = 'none';
+    document.getElementById('game-screen').style.display = 'none';
+    document.getElementById('lobby-screen').style.display = 'block';
+    renderSeats(players);
+});
