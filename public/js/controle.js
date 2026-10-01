@@ -146,3 +146,44 @@ socket.on('start-voting-round', (data) => {
     // Delega o render da votação para o módulo
     renderVotingScreen(votingScreen, data, socket);
 });
+
+// Adicionar no final do public/js/controle.js
+socket.on('game-over', (leaderboard) => {
+    document.getElementById('waiting-screen').style.display = 'none';
+    document.getElementById('drawing-screen').style.display = 'none';
+
+    let votingScreen = document.getElementById('voting-screen');
+    if (!votingScreen) {
+        votingScreen = document.createElement('div');
+        votingScreen.id = 'voting-screen';
+        document.body.appendChild(votingScreen);
+    }
+    votingScreen.style.display = 'block';
+    votingScreen.innerHTML = '';
+
+    const me = leaderboard.find(p => p.id === socket.id);
+    const myRank = leaderboard.findIndex(p => p.id === socket.id) + 1;
+
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.style.marginTop = '40px';
+
+    const h2 = document.createElement('h2');
+    h2.style.color = '#facc15';
+    h2.textContent = 'Fim de Jogo! 🏆';
+
+    const p1 = document.createElement('p');
+    p1.style.fontSize = '1.3rem';
+    p1.style.fontWeight = 'bold';
+    p1.style.color = '#38bdf8';
+    p1.textContent = me ? `\({myRank}º Lugar (\){me.score} pts)` : 'Partida Encerrada';
+
+    const p2 = document.createElement('p');
+    p2.style.color = '#94a3b8';
+    p2.textContent = 'Olhe para a TV para ver o pódio completo!';
+
+    card.appendChild(h2);
+    card.appendChild(p1);
+    card.appendChild(p2);
+    votingScreen.appendChild(card);
+});

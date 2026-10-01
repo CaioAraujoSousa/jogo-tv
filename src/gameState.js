@@ -17,14 +17,8 @@ try {
 }
 
 const COLOR_PALETTE = [
-    '#a855f7', // 1 - Roxo
-    '#22c55e', // 2 - Verde
-    '#f97316', // 3 - Laranja
-    '#3b82f6', // 4 - Azul
-    '#ec4899', // 5 - Rosa
-    '#eab308', // 6 - Amarelo
-    '#06b6d4', // 7 - Ciano
-    '#ef4444'  // 8 - Vermelho
+    '#a855f7', '#22c55e', '#f97316', '#3b82f6',
+    '#ec4899', '#eab308', '#06b6d4', '#ef4444'
 ];
 
 class GameState {
@@ -75,6 +69,7 @@ class GameState {
         this.matchThemes = getRandomThemes(6);
         this.drawings = {};
         this.votes = {};
+        this.players.forEach(p => p.score = 0);
         return this.getCurrentRoundData();
     }
 
@@ -131,6 +126,37 @@ class GameState {
             theme: theme,
             cards: cards
         };
+    }
+
+    calculateFinalLeaderboard() {
+        this.players.forEach(p => p.score = 0);
+
+        for (let r = 1; r <= 6; r++) {
+            const roundDrawings = this.drawings[r] || {};
+            const roundVotes = this.votes[r] || {};
+
+            const artistMap = {};
+            Object.keys(roundDrawings).forEach((artistId, index) => {
+                artistMap[index + 1] = artistId;
+            });
+
+            Object.values(roundVotes).forEach(voteList => {
+                if (voteList[0] && artistMap[voteList[0]]) {
+                    const p = this.players.find(player => player.id === artistMap[voteList[0]]);
+                    if (p) p.score += 50;
+                }
+                if (voteList[1] && artistMap[voteList[1]]) {
+                    const p = this.players.find(player => player.id === artistMap[voteList[1]]);
+                    if (p) p.score += 30;
+                }
+                if (voteList[2] && artistMap[voteList[2]]) {
+                    const p = this.players.find(player => player.id === artistMap[voteList[2]]);
+                    if (p) p.score += 20;
+                }
+            });
+        }
+
+        return [...this.players].sort((a, b) => b.score - a.score);
     }
 }
 

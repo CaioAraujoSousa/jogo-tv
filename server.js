@@ -97,7 +97,8 @@ function handleVotingCompletion(roundNum) {
     } else if (roundNum >= 4 && roundNum < 6) {
         io.emit('start-voting-round', gameState.getVotingCards(roundNum + 1));
     } else if (roundNum === 6) {
-        io.emit('game-over');
+        const leaderboard = gameState.calculateFinalLeaderboard();
+        io.emit('game-over', leaderboard);
     }
 }
 

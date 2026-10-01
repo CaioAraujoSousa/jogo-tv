@@ -155,3 +155,73 @@ socket.on('start-voting-round', (data) => {
     container.appendChild(headerDiv);
     container.appendChild(gridDiv);
 });
+
+// Adicionar no final do public/js/tv.js
+socket.on('game-over', (leaderboard) => {
+    document.getElementById('lobby-screen').style.display = 'none';
+    document.getElementById('game-screen').style.display = 'none';
+    document.getElementById('presentation-screen').style.display = 'block';
+
+    const container = document.getElementById('presentation-container');
+    container.innerHTML = '';
+
+    const titleH1 = document.createElement('h1');
+    titleH1.style.color = '#facc15';
+    titleH1.style.fontSize = '3rem';
+    titleH1.style.marginBottom = '20px';
+    titleH1.textContent = '🏆 Pódio Final 🏆';
+
+    const podiumWrapper = document.createElement('div');
+    podiumWrapper.className = 'podium-container';
+
+    const first = leaderboard[0];
+    const second = leaderboard[1];
+    const third = leaderboard[2];
+
+    if (second) podiumWrapper.appendChild(createPillar(second, 2, 'silver'));
+    if (first) podiumWrapper.appendChild(createPillar(first, 1, 'gold'));
+    if (third) podiumWrapper.appendChild(createPillar(third, 3, 'bronze'));
+
+    container.appendChild(titleH1);
+    container.appendChild(podiumWrapper);
+
+    if (leaderboard.length > 3) {
+        const restList = document.createElement('div');
+        restList.className = 'rest-leaderboard';
+        for (let i = 3; i < leaderboard.length; i++) {
+            const p = leaderboard[i];
+            const row = document.createElement('div');
+            row.className = 'rest-row';
+            row.textContent = `\({i + 1}º\){p.avatar} \({p.name} -\){p.score} pts`;
+            restList.appendChild(row);
+        }
+        container.appendChild(restList);
+    }
+});
+
+function createPillar(player, rank, type) {
+    const pillar = document.createElement('div');
+    pillar.className = `podium-pillar ${type}`;
+
+    const avatar = document.createElement('div');
+    avatar.className = 'podium-avatar';
+    avatar.textContent = player.avatar;
+
+    const badge = document.createElement('div');
+    badge.className = 'podium-rank-badge';
+    badge.textContent = rank;
+
+    const name = document.createElement('div');
+    name.className = 'podium-name';
+    name.textContent = player.name;
+
+    const score = document.createElement('div');
+    score.className = 'podium-score';
+    score.textContent = `${player.score} pts`;
+
+    pillar.appendChild(avatar);
+    pillar.appendChild(badge);
+    pillar.appendChild(name);
+    pillar.appendChild(score);
+    return pillar;
+}
