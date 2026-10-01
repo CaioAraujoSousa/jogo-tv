@@ -66,7 +66,41 @@ button {
 }
 button:hover { background: #0284c7dd; }
 #error-msg { color: #f87171; margin-top: 10px; font-size: 0.9rem; }
-#drawing-screen { display: none; width: 100%; max-width: 400px; text-align: center; }
+#drawing-screen, #voting-screen { display: none; width: 100%; max-width: 400px; text-align: center; }
 .theme-box { background: #1e293b; padding: 12px; border-radius: 10px; margin-bottom: 12px; border: 1px solid #38bdf8; }
 canvas { background: white; border-radius: 12px; cursor: crosshair; display: block; margin: 0 auto 15px auto; touch-action: none; box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
 .toolbar { display: flex; gap: 10px; }
+
+/* Botões da grelha de votação no telemóvel */
+.vote-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin: 15px 0;
+}
+.vote-btn {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-radius: 12px;
+    font-size: 1.3rem;
+    font-weight: bold;
+    color: white;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: transform 0.1s, opacity 0.2s;
+}
+.vote-btn:active { transform: scale(0.96); }
+.vote-btn.disabled {
+    background-color: #334155 !important;
+    opacity: 0.35;
+    cursor: not-allowed;
+    border-color: #475569 !important;
+}
+.vote-badge {
+    background: rgba(0, 0, 0, 0.4);
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+}

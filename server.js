@@ -9,12 +9,25 @@ const io = new Server(server);
 
 app.use(express.static('public'));
 
+// Paleta de cores fixas para associar a cada número de desenho na TV/Celular
+const COLOR_PALETTE = [
+    '#a855f7', // 1 - Roxo
+    '#22c55e', // 2 - Verde
+    '#f97316', // 3 - Laranja
+    '#3b82f6', // 4 - Azul
+    '#ec4899', // 5 - Rosa
+    '#eab308', // 6 - Amarelo
+    '#06b6d4', // 7 - Ciano
+    '#ef4444'  // 8 - Vermelho
+];
+
 let players = []; 
 let gameState = {
     isStarted: false,
     currentRound: 0, 
     matchThemes: [],
-    drawings: {} 
+    drawings: {},
+    votes: {} // Guarda os votos por rodada
 };
 
 io.on('connection', (socket) => {
@@ -51,17 +64,15 @@ io.on('connection', (socket) => {
         io.emit('update-lobby', players);
     });
 
-    // Iniciar o jogo (Agora acionado pelo telemóvel do Anfitrião)
     socket.on('start-game', () => {
         if (players.length === 0) return;
-        
-        // Segurança: Só o jogador índice 0 (Anfitrião) pode iniciar a partida!
         if (players[0].id !== socket.id) return;
 
         gameState.isStarted = true;
         gameState.currentRound = 1;
         gameState.matchThemes = getRandomThemes(6);
         gameState.drawings = {};
+        gameState.votes = {};
 
         startRound(1);
     });
@@ -86,7 +97,6 @@ io.on('connection', (socket) => {
         const index = players.findIndex(p => p.id === socket.id);
         if (index !== -1) {
             players.splice(index, 1);
-            // Ao enviar a lista atualizada, os telemóveis reavaliam quem é o novo Anfitrião (o novo índice 0)
             io.emit('update-lobby', players);
         }
     });
@@ -104,26 +114,36 @@ function proceedToNextStep() {
     if (currentRound < 3) {
         startRound(currentRound + 1);
     } else if (currentRound === 3) {
-        console.log('Fim do Bloco 1. Enviando desenhos para a TV...');
-        io.emit('show-presentation', { 
-            block: 1, 
-            rounds: [1, 2, 3], 
-            themes: gameState.matchThemes.slice(0, 3), 
-            drawings: gameState.drawings,
-            players: players
-        });
+        // Inicia a votação da Rodada 1 do Bloco 1
+        startVotingForRound(1);
     } else if (currentRound > 3 && currentRound < 6) {
         startRound(currentRound + 1);
     } else if (currentRound === 6) {
-        console.log('Fim do Bloco 2. Enviando desenhos para a TV...');
-        io.emit('show-presentation', { 
-            block: 2, 
-            rounds: [4, 5, 6], 
-            themes: gameState.matchThemes.slice(3, 6), 
-            drawings: gameState.drawings,
-            players: players
-        });
+        // Inicia a votação da Rodada 4 do Bloco 2
+        startVotingForRound(4);
     }
+}
+
+function startVotingForRound(roundNum) {
+    const theme = gameState.matchThemes[roundNum - 1];
+    const roundDrawings = gameState.drawings[roundNum] || {};
+
+    // Mapeia os desenhos atribuindo Número (1..N) e Cor única
+    const drawingCards = Object.keys(roundDrawings).map((playerId, index) => {
+        return {
+            number: index + 1,
+            color: COLOR_PALETTE[index % COLOR_PALETTE.length],
+            artistId: playerId,
+            imageData: roundDrawings[playerId]
+        };
+    });
+
+    // Envia evento de votação para TV e Celulares
+    io.emit('start-voting-round', {
+        round: roundNum,
+        theme: theme,
+        cards: drawingCards
+    });
 }
 
 const PORT = process.env.PORT || 3000;

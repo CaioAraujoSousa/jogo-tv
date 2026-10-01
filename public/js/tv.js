@@ -48,54 +48,34 @@ socket.on('start-round', (data) => {
     document.getElementById('theme-display').innerText = data.theme;
 });
 
-socket.on('show-presentation', (data) => {
+// Fase de Votação por Rodada: Exibe todos os desenhos lado a lado com números e cores
+socket.on('start-voting-round', (data) => {
+    document.getElementById('lobby-screen').style.display = 'none';
     document.getElementById('game-screen').style.display = 'none';
     document.getElementById('presentation-screen').style.display = 'block';
 
     const container = document.getElementById('presentation-container');
-    container.innerHTML = '';
+    
+    let html = `
+        <div style="margin-bottom: 25px;">
+            <p style="color: #94a3b8; font-size: 1.2rem; margin: 0;">Rodada ${data.round} de 6 • Votação</p>
+            <h1 style="color: #facc15; font-size: 2.2rem; margin: 5px 0 15px 0;">${data.theme}</h1>
+            <p style="color: #38bdf8; font-size: 1.1rem; margin: 0;">Vote no telemóvel na ordem dos seus desenhos favoritos!</p>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; width: 100%; max-width: 1100px; margin: 0 auto;">
+    `;
 
-    let slides = [];
-    data.rounds.forEach((roundNum, index) => {
-        const theme = data.themes[index];
-        const roundDrawings = data.drawings[roundNum] || {};
-
-        for (let playerId in roundDrawings) {
-            const player = data.players.find(p => p.id === playerId);
-            slides.push({
-                round: roundNum,
-                theme: theme,
-                player: player ? player.name : 'Jogador Desconhecido',
-                avatar: player ? player.avatar : '🎨',
-                image: roundDrawings[playerId]
-            });
-        }
-    });
-
-    let currentSlideIndex = 0;
-
-    function renderSlide() {
-        if (currentSlideIndex >= slides.length) {
-            container.innerHTML = `<h3 style="color: #38bdf8; margin-top: 40px;">Fim da apresentação deste bloco! Próxima fase em breve...</h3>`;
-            return;
-        }
-
-        const slide = slides[currentSlideIndex];
-        container.innerHTML = `
-            <div class="drawing-card">
-                <p style="color: #94a3b8; margin: 0; font-size: 1rem;">Rodada ${slide.round} • Tema:</p>
-                <h3 style="color: #facc15; margin: 8px 0 15px 0; font-size: 1.6rem;">${slide.theme}</h3>
-                <div style="font-size: 1.3rem; font-weight: bold; margin-bottom: 5px;">\({slide.avatar}\){slide.player}</div>
-                <img src="${slide.image}" alt="Desenho">
-                <button class="next-presentation-btn" id="next-slide-btn">Seguinte ➔</button>
+    data.cards.forEach((card) => {
+        html += `
+            <div style="background: #1e293b; padding: 15px; border-radius: 16px; border: 3px solid ${card.color}; display: flex; flex-direction: column; align-items: center; box-shadow: 0 8px 20px rgba(0,0,0,0.4); width: 220px;">
+                <div style="background: ${card.color}; color: #ffffff; font-size: 1.8rem; font-weight: bold; width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.3);">
+                    ${card.number}
+                </div>
+                <img src="\({card.imageData}" alt="Desenho\){card.number}" style="background: white; border-radius: 10px; width: 100%; height: 240px; object-fit: contain;" />
             </div>
         `;
+    });
 
-        document.getElementById('next-slide-btn').addEventListener('click', () => {
-            currentSlideIndex++;
-            renderSlide();
-        });
-    }
-
-    renderSlide();
+    html += `</div>`;
+    container.innerHTML = html;
 });
