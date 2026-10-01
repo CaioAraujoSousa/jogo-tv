@@ -9,6 +9,12 @@ const io = new Server(server);
 
 app.use(express.static('public'));
 
+app.get('/reset', (req, res) => {
+    gameState.reset();
+    io.emit('update-lobby', []);
+    res.send('<h1>Sala resetada com sucesso! Volte ao jogo.</h1>');
+});
+
 io.on('connection', (socket) => {
     console.log('Novo dispositivo conectado:', socket.id);
 
@@ -44,8 +50,19 @@ io.on('connection', (socket) => {
         const submittedCount = gameState.submitDrawing(socket.id, imageData);
         io.emit('drawing-progress', { submitted: submittedCount, total: gameState.players.length });
 
-        if (submittedCount >= gameState.players.length) {
-            proceedToNextStep();
+        if (gameState.allDrawingsSubmitted()) {
+            handleDrawingCompletion();
+        }
+    });
+
+    socket.on('submit-votes', (data) => {
+        const roundNum = data.round;
+        const votesArray = data.votes;
+        
+        gameState.submitVote(socket.id, roundNum, votesArray);
+
+        if (gameState.allVotesSubmitted(roundNum)) {
+            handleVotingCompletion(roundNum);
         }
     });
 
@@ -55,7 +72,7 @@ io.on('connection', (socket) => {
     });
 });
 
-function proceedToNextStep() {
+function handleDrawingCompletion() {
     const currentRound = gameState.currentRound;
 
     if (currentRound < 3) {
@@ -68,6 +85,19 @@ function proceedToNextStep() {
         io.emit('start-round', gameState.getCurrentRoundData());
     } else if (currentRound === 6) {
         io.emit('start-voting-round', gameState.getVotingCards(4));
+    }
+}
+
+function handleVotingCompletion(roundNum) {
+    if (roundNum < 3) {
+        io.emit('start-voting-round', gameState.getVotingCards(roundNum + 1));
+    } else if (roundNum === 3) {
+        gameState.currentRound = 4;
+        io.emit('start-round', gameState.getCurrentRoundData());
+    } else if (roundNum >= 4 && roundNum < 6) {
+        io.emit('start-voting-round', gameState.getVotingCards(roundNum + 1));
+    } else if (roundNum === 6) {
+        io.emit('game-over');
     }
 }
 

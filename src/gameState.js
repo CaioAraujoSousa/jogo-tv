@@ -22,6 +22,7 @@ class GameState {
     }
 
     reset() {
+        this.players = [];
         this.isStarted = false;
         this.currentRound = 0;
         this.matchThemes = [];
@@ -44,6 +45,10 @@ class GameState {
         const index = this.players.findIndex(p => p.id === id);
         if (index !== -1) {
             this.players.splice(index, 1);
+        }
+        // Se restar 1 ou 0 jogadores, reseta o estado da partida para liberar novos logins
+        if (this.players.length <= 1) {
+            this.isStarted = false;
         }
         if (this.players.length === 0) {
             this.reset();
