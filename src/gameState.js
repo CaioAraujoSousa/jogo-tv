@@ -1,4 +1,20 @@
-const { getRandomThemes } = require('../themes');
+let getRandomThemes;
+try {
+    getRandomThemes = require('../themes').getRandomThemes;
+} catch (e) {
+    try {
+        getRandomThemes = require('./themes').getRandomThemes;
+    } catch (err) {
+        getRandomThemes = (count) => [
+            "Zumbi a fazer ioga na praia",
+            "Gato astronauta a comer pizza",
+            "Pirata a andar de patins",
+            "Dinossauro a tocar guitarra",
+            "Robô a cozinhar um bolo",
+            "Super-herói a lavar a louça"
+        ];
+    }
+}
 
 const COLOR_PALETTE = [
     '#a855f7', // 1 - Roxo
@@ -16,6 +32,7 @@ class GameState {
         this.players = [];
         this.isStarted = false;
         this.currentRound = 0;
+        this.currentVotingRound = 0;
         this.matchThemes = [];
         this.drawings = {};
         this.votes = {};
@@ -25,18 +42,14 @@ class GameState {
         this.players = [];
         this.isStarted = false;
         this.currentRound = 0;
+        this.currentVotingRound = 0;
         this.matchThemes = [];
         this.drawings = {};
         this.votes = {};
     }
 
     addPlayer(id, name, avatar) {
-        const newPlayer = {
-            id,
-            name,
-            avatar: avatar || '🦊',
-            score: 0
-        };
+        const newPlayer = { id, name, avatar: avatar || '🦊', score: 0 };
         this.players.push(newPlayer);
         return newPlayer;
     }
@@ -46,7 +59,6 @@ class GameState {
         if (index !== -1) {
             this.players.splice(index, 1);
         }
-        // Se restar 1 ou 0 jogadores, reseta o estado da partida para liberar novos logins
         if (this.players.length <= 1) {
             this.isStarted = false;
         }
@@ -59,6 +71,7 @@ class GameState {
     startGame() {
         this.isStarted = true;
         this.currentRound = 1;
+        this.currentVotingRound = 0;
         this.matchThemes = getRandomThemes(6);
         this.drawings = {};
         this.votes = {};
@@ -81,7 +94,26 @@ class GameState {
         return Object.keys(this.drawings[round]).length;
     }
 
+    allDrawingsSubmitted() {
+        const roundDrawings = this.drawings[this.currentRound] || {};
+        return Object.keys(roundDrawings).length >= this.players.length;
+    }
+
+    submitVote(playerId, roundNum, votesArray) {
+        if (!this.votes[roundNum]) {
+            this.votes[roundNum] = {};
+        }
+        this.votes[roundNum][playerId] = votesArray;
+        return Object.keys(this.votes[roundNum]).length;
+    }
+
+    allVotesSubmitted(roundNum) {
+        const roundVotes = this.votes[roundNum] || {};
+        return Object.keys(roundVotes).length >= this.players.length;
+    }
+
     getVotingCards(roundNum) {
+        this.currentVotingRound = roundNum;
         const theme = this.matchThemes[roundNum - 1];
         const roundDrawings = this.drawings[roundNum] || {};
 
