@@ -73,10 +73,28 @@ io.on('connection', (socket) => {
         gameState.returnToLobby();
         io.emit('back-to-lobby', gameState.players);
     });
+    
     socket.on('disconnect', () => {
-        gameState.removePlayer(socket.id);
-        io.emit('update-lobby', gameState.players);
-    });
+    console.log(`Dispositivo desconectado: ${socket.id}`);
+
+    // Se a partida está rolando, NÃO remove o jogador do gameState nem avisa o lobby
+    if (gameState.isStarted) {
+        if (typeof gameState.setDisconnected === 'function') {
+            gameState.setDisconnected(socket.id);
+        }
+
+        // Se a saída dele destravar a contagem da rodada, avança o jogo
+        if (gameState.allDrawingsSubmitted()) {
+            handleDrawingCompletion();
+        } else if (gameState.currentRound && gameState.allVotesSubmitted(gameState.currentRound)) {
+            handleVotingCompletion(gameState.currentRound);
+        }
+        return;
+    }
+
+    gameState.removePlayer(socket.id);
+    io.emit('update-lobby', gameState.players);
+});
 });
 
 function handleDrawingCompletion() {

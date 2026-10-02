@@ -54,9 +54,16 @@ class GameState {
     }
 
     addPlayer(id, name, avatar) {
-        const newPlayer = { id, name, avatar: avatar || '🦊', score: 0 };
+        const newPlayer = { id, name, avatar: avatar || '🦊', score: 0, disconnected: false };
         this.players.push(newPlayer);
         return newPlayer;
+    }
+
+    setDisconnected(id) {
+        const player = this.players.find(p => p.id === id);
+        if (player) {
+            player.disconnected = true;
+        }
     }
 
     removePlayer(id) {
@@ -102,7 +109,9 @@ class GameState {
 
     allDrawingsSubmitted() {
         const roundDrawings = this.drawings[this.currentRound] || {};
-        return Object.keys(roundDrawings).length >= this.players.length;
+        const activePlayers = this.players.filter(p => !p.disconnected);
+        if (activePlayers.length === 0) return true;
+        return Object.keys(roundDrawings).length >= activePlayers.length;
     }
 
     submitVote(playerId, roundNum, votesArray) {
@@ -115,7 +124,9 @@ class GameState {
 
     allVotesSubmitted(roundNum) {
         const roundVotes = this.votes[roundNum] || {};
-        return Object.keys(roundVotes).length >= this.players.length;
+        const activePlayers = this.players.filter(p => !p.disconnected);
+        if (activePlayers.length === 0) return true;
+        return Object.keys(roundVotes).length >= activePlayers.length;
     }
 
     getVotingCards(roundNum) {

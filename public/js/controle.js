@@ -4,7 +4,32 @@ import { renderVotingScreen } from './modules/votingEngine.js';
 const socket = io();
 let selectedAvatar = '🦊';
 let isHost = false;
+let isGameStarted = false; // Trava de estado da partida
 
+// Gerenciador Central de Exibição de Telas
+function exibirTela(idTelaDesejada) {
+    const telas = ['login-screen', 'waiting-screen', 'drawing-screen', 'voting-screen'];
+    
+    telas.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+    });
+
+    let telaAtiva = document.getElementById(idTelaDesejada);
+    
+    // Garante a existência do container de votação caso ainda não esteja no DOM
+    if (!telaAtiva && idTelaDesejada === 'voting-screen') {
+        telaAtiva = document.createElement('div');
+        telaAtiva.id = 'voting-screen';
+        document.body.appendChild(telaAtiva);
+    }
+
+    if (telaAtiva) {
+        telaAtiva.style.display = 'block';
+    }
+}
+
+// Seleção de Avatar
 document.querySelectorAll('.avatar-option').forEach(item => {
     item.addEventListener('click', (e) => {
         document.querySelectorAll('.avatar-option').forEach(a => a.classList.remove('selected'));
@@ -13,6 +38,7 @@ document.querySelectorAll('.avatar-option').forEach(item => {
     });
 });
 
+// Entrar no Jogo
 document.getElementById('join-btn').addEventListener('click', () => {
     const name = document.getElementById('nickname').value.trim();
     if (!name) {
@@ -26,39 +52,42 @@ socket.on('error-message', (msg) => {
     document.getElementById('error-msg').innerText = msg;
 });
 
+// ATUALIZAÇÃO DO LOBBY
 socket.on('update-lobby', (players) => {
     const me = players.find(p => p.id === socket.id);
-    if (me) {
-        document.getElementById('login-screen').style.display = 'none';
-        document.getElementById('waiting-screen').style.display = 'block';
-        document.getElementById('user-display').innerText = me.avatar;
-        document.getElementById('welcome-name').innerText = me.name;
+    if (!me) return;
 
-        isHost = players.length > 0 && players[0].id === socket.id;
-        
-        if (isHost) {
-            document.getElementById('host-controls').style.display = 'block';
-            document.getElementById('waiting-msg').style.display = 'none';
-        } else {
-            document.getElementById('host-controls').style.display = 'none';
-            document.getElementById('waiting-msg').style.display = 'block';
-            document.getElementById('waiting-msg').innerText = 'Aguardando ' + players[0].name + ' iniciar a partida...';
-        }
+    isHost = players.length > 0 && players[0].id === socket.id;
+
+    // SE A PARTIDA JÁ COMEÇOU, NÃO REABRE A TELA DE ESPERA/LOBBY
+    if (isGameStarted) return;
+
+    exibirTela('waiting-screen');
+
+    document.getElementById('user-display').innerText = me.avatar;
+    document.getElementById('welcome-name').innerText = me.name;
+
+    if (isHost) {
+        document.getElementById('host-controls').style.display = 'block';
+        document.getElementById('waiting-msg').style.display = 'none';
+    } else {
+        document.getElementById('host-controls').style.display = 'none';
+        document.getElementById('waiting-msg').style.display = 'block';
+        document.getElementById('waiting-msg').innerText = 'Aguardando ' + players[0].name + ' iniciar a partida...';
     }
 });
 
+// Iniciar Partida pelo Celular
 document.getElementById('start-btn-mobile').addEventListener('click', () => {
     socket.emit('start-game');
 });
 
 // FASE DE DESENHO
 socket.on('start-round', (data) => {
-    document.getElementById('waiting-screen').style.display = 'none';
-    const votingScreen = document.getElementById('voting-screen');
-    if (votingScreen) votingScreen.style.display = 'none';
-    
+    isGameStarted = true;
+    exibirTela('drawing-screen');
+
     const drawingScreen = document.getElementById('drawing-screen');
-    drawingScreen.style.display = 'block';
     drawingScreen.innerHTML = '';
 
     const themeBox = document.createElement('div');
@@ -128,32 +157,19 @@ socket.on('start-round', (data) => {
 
 // FASE DE VOTAÇÃO
 socket.on('start-voting-round', (data) => {
-    document.getElementById('waiting-screen').style.display = 'none';
-    document.getElementById('drawing-screen').style.display = 'none';
+    isGameStarted = true;
+    exibirTela('voting-screen');
 
-    let votingScreen = document.getElementById('voting-screen');
-    if (!votingScreen) {
-        votingScreen = document.createElement('div');
-        votingScreen.id = 'voting-screen';
-        document.body.appendChild(votingScreen);
-    }
-    votingScreen.style.display = 'block';
-
+    const votingScreen = document.getElementById('voting-screen');
     renderVotingScreen(votingScreen, data, socket);
 });
 
 // FIM DE JOGO
 socket.on('game-over', (leaderboard) => {
-    document.getElementById('waiting-screen').style.display = 'none';
-    document.getElementById('drawing-screen').style.display = 'none';
+    isGameStarted = true;
+    exibirTela('voting-screen');
 
-    let votingScreen = document.getElementById('voting-screen');
-    if (!votingScreen) {
-        votingScreen = document.createElement('div');
-        votingScreen.id = 'voting-screen';
-        document.body.appendChild(votingScreen);
-    }
-    votingScreen.style.display = 'block';
+    const votingScreen = document.getElementById('voting-screen');
     votingScreen.innerHTML = '';
 
     const me = leaderboard.find(p => p.id === socket.id);
@@ -203,10 +219,8 @@ socket.on('game-over', (leaderboard) => {
 
 // RETORNO AO LOBBY
 socket.on('back-to-lobby', (players) => {
-    const votingScreen = document.getElementById('voting-screen');
-    if (votingScreen) votingScreen.style.display = 'none';
-    document.getElementById('drawing-screen').style.display = 'none';
-    document.getElementById('waiting-screen').style.display = 'block';
+    isGameStarted = false; // Destrava o estado do jogo para reabrir o lobby
+    exibirTela('waiting-screen');
 
     const me = players.find(p => p.id === socket.id);
     if (me) {

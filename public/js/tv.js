@@ -1,5 +1,8 @@
 const socket = io();
 const controlUrl = window.location.origin + '/controle.html';
+let isGameStarted = false;
+
+// QR Code da sala
 document.getElementById('room-url').innerText = controlUrl;
 new QRCode(document.getElementById("qrcode"), {
     text: controlUrl,
@@ -9,6 +12,21 @@ new QRCode(document.getElementById("qrcode"), {
 
 const seatsGrid = document.getElementById('seats-grid');
 
+// Gerenciador Central de Telas para a TV
+function exibirTelaTV(idTelaDesejada) {
+    const telas = ['lobby-screen', 'game-screen', 'presentation-screen'];
+    telas.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+    });
+
+    const telaAtiva = document.getElementById(idTelaDesejada);
+    if (telaAtiva) {
+        telaAtiva.style.display = 'block';
+    }
+}
+
+// Renderização dos Lugares / Assentos no Lobby
 function renderSeats(players) {
     seatsGrid.innerHTML = '';
     document.getElementById('player-count').innerText = players.length;
@@ -52,23 +70,30 @@ function renderSeats(players) {
 
 renderSeats([]);
 
+// Atualização do Lobby
 socket.on('update-lobby', (players) => {
+    // Atualiza os dados dos assentos
     renderSeats(players);
+
+    // Garante que a tela do lobby só fique visível se o jogo NÃO começou
+    if (!isGameStarted) {
+        exibirTelaTV('lobby-screen');
+    }
 });
 
+// FASE DE DESENHO (TELA PRINCIPAL)
 socket.on('start-round', (data) => {
-    document.getElementById('lobby-screen').style.display = 'none';
-    document.getElementById('game-screen').style.display = 'block';
-    document.getElementById('presentation-screen').style.display = 'none';
+    isGameStarted = true;
+    exibirTelaTV('game-screen');
+
     document.getElementById('round-number').innerText = data.round;
     document.getElementById('theme-display').innerText = data.theme;
 });
 
-// Fase de Votação por Rodada (Grelha com DOM puro - 0 erros de renderização)
+// FASE DE VOTAÇÃO (APRESENTAÇÃO DOS DESENHOS)
 socket.on('start-voting-round', (data) => {
-    document.getElementById('lobby-screen').style.display = 'none';
-    document.getElementById('game-screen').style.display = 'none';
-    document.getElementById('presentation-screen').style.display = 'block';
+    isGameStarted = true;
+    exibirTelaTV('presentation-screen');
 
     const container = document.getElementById('presentation-container');
     container.innerHTML = '';
@@ -156,11 +181,10 @@ socket.on('start-voting-round', (data) => {
     container.appendChild(gridDiv);
 });
 
-// Adicionar no final do public/js/tv.js
+// FIM DE JOGO E PÓDIO
 socket.on('game-over', (leaderboard) => {
-    document.getElementById('lobby-screen').style.display = 'none';
-    document.getElementById('game-screen').style.display = 'none';
-    document.getElementById('presentation-screen').style.display = 'block';
+    isGameStarted = true;
+    exibirTelaTV('presentation-screen');
 
     const container = document.getElementById('presentation-container');
     container.innerHTML = '';
@@ -185,6 +209,7 @@ socket.on('game-over', (leaderboard) => {
     container.appendChild(titleH1);
     container.appendChild(podiumWrapper);
 
+    // Demais colocações (do 4º em diante)
     if (leaderboard.length > 3) {
         const restList = document.createElement('div');
         restList.className = 'rest-leaderboard';
@@ -226,9 +251,9 @@ function createPillar(player, rank, type) {
     return pillar;
 }
 
+// RETORNO AO LOBBY
 socket.on('back-to-lobby', (players) => {
-    document.getElementById('presentation-screen').style.display = 'none';
-    document.getElementById('game-screen').style.display = 'none';
-    document.getElementById('lobby-screen').style.display = 'block';
+    isGameStarted = false;
+    exibirTelaTV('lobby-screen');
     renderSeats(players);
 });
