@@ -181,7 +181,6 @@ socket.on('start-voting-round', (data) => {
     container.appendChild(gridDiv);
 });
 
-// FIM DE JOGO E PÓDIO
 socket.on('game-over', (leaderboard) => {
     isGameStarted = true;
     exibirTelaTV('presentation-screen');

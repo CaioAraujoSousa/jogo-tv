@@ -5,6 +5,7 @@ const socket = io();
 let selectedAvatar = '🦊';
 let isHost = false;
 let isGameStarted = false; // Trava de estado da partida
+let hasJoined = false; // Identifica se este celular está ativamente na partida
 
 // Gerenciador Central de Exibição de Telas
 function exibirTela(idTelaDesejada) {
@@ -55,6 +56,8 @@ socket.on('error-message', (msg) => {
 // ATUALIZAÇÃO DO LOBBY
 socket.on('update-lobby', (players) => {
     const me = players.find(p => p.id === socket.id);
+    hasJoined = !!me;
+
     if (!me) return;
 
     isHost = players.length > 0 && players[0].id === socket.id;
@@ -84,6 +87,7 @@ document.getElementById('start-btn-mobile').addEventListener('click', () => {
 
 // FASE DE DESENHO
 socket.on('start-round', (data) => {
+    if (!hasJoined) return;
     isGameStarted = true;
     exibirTela('drawing-screen');
 
@@ -157,6 +161,7 @@ socket.on('start-round', (data) => {
 
 // FASE DE VOTAÇÃO
 socket.on('start-voting-round', (data) => {
+    if (!hasJoined) return;
     isGameStarted = true;
     exibirTela('voting-screen');
 
@@ -166,6 +171,8 @@ socket.on('start-voting-round', (data) => {
 
 // FIM DE JOGO
 socket.on('game-over', (leaderboard) => {
+    if (!hasJoined) return;
+
     isGameStarted = true;
     exibirTela('voting-screen');
 
@@ -219,16 +226,20 @@ socket.on('game-over', (leaderboard) => {
 
 // RETORNO AO LOBBY
 socket.on('back-to-lobby', (players) => {
-    isGameStarted = false; // Destrava o estado do jogo para reabrir o lobby
-    exibirTela('waiting-screen');
-
+    isGameStarted = false;
     const me = players.find(p => p.id === socket.id);
+
     if (me) {
+        hasJoined = true;
+        exibirTela('waiting-screen');
         isHost = players.length > 0 && players[0].id === socket.id;
         document.getElementById('host-controls').style.display = isHost ? 'block' : 'none';
         document.getElementById('waiting-msg').style.display = isHost ? 'none' : 'block';
         if (!isHost) {
             document.getElementById('waiting-msg').innerText = 'Aguardando ' + players[0].name + ' iniciar a partida...';
         }
+    } else {
+        hasJoined = false;
+        exibirTela('login-screen'); // Manda quem estava aguardando de volta para o login para poder entrar no próximo jogo
     }
 });

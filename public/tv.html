@@ -3,41 +3,53 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cinema do Desenho - TV</title>
+    <title>Display / TV - Cinema do Desenho</title>
     <script src="/socket.io/socket.io.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <link rel="stylesheet" href="/css/tv.css">
 </head>
 <body>
-    <div id="lobby-screen">
-        <h1>Cinema do Desenho 🎨</h1>
-        <p id="tv-status" style="text-align: center; color: #94a3b8;">Aguardando jogadores...</p>
-        
-        <div class="lobby-container">
-            <div class="qr-section">
-                <h3 style="margin: 0; color: #38bdf8;">Conecte seu celular</h3>
-                <p id="room-url" style="font-size: 0.8rem; color: #64748b; margin: 5px 0 10px 0;"></p>
+
+    <!-- TELA 1: LOBBY -->
+    <div id="lobby-screen" class="screen">
+        <header class="tv-header">
+            <h1>Cinema do Desenho 🎨</h1>
+            <p id="tv-status">Aponte a câmara do telemóvel para o QR Code para entrar na sala</p>
+        </header>
+
+        <main class="lobby-container">
+            <div class="qr-card">
+                <h3>Conecte seu celular</h3>
                 <div id="qrcode"></div>
+                <p id="room-url"></p>
             </div>
-            
-            <div class="seats-section">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <h3 style="margin: 0; color: #38bdf8;">Jogadores Conectados</h3>
-                    <span style="background: #0284c7; padding: 4px 12px; border-radius: 12px; font-weight: bold; font-size: 0.9rem;"><span id="player-count">0</span>/8</span>
+
+            <div class="seats-card">
+                <div class="seats-header">
+                    <h3>Jogadores Conectados</h3>
+                    <span class="badge"><span id="player-count">0</span>/8</span>
                 </div>
-                <div class="seats-grid" id="seats-grid"></div>
+                <div id="seats-grid" class="grid-seats">
+                    <!-- Lugares injetados pelo tv.js -->
+                </div>
             </div>
+        </main>
+    </div>
+
+    <!-- TELA 2: RODADA DE DESENHO -->
+    <div id="game-screen" class="screen" style="display: none;">
+        <div class="drawing-phase-container">
+            <p class="phase-subtitle">Rodada <span id="round-number">1</span> de 6</p>
+            <h1 id="theme-display" class="current-theme">Tema da Rodada</h1>
+            <p class="instruction-text">Olhe para a tela do seu celular e faça o seu desenho! 🎨</p>
         </div>
     </div>
 
-    <div id="game-screen">
-        <p style="color: #94a3b8; font-size: 1.2rem; margin: 0;">Rodada <span id="round-number">1</span> de 6</p>
-        <h1 id="theme-display" style="color: #facc15; font-size: 2.5rem; margin: 10px 0;">Desenhe algo incrível!</h1>
-        <p style="color: #38bdf8;">Olhe para a tela do seu celular e faça o seu melhor desenho!</p>
-    </div>
-
-    <div id="presentation-screen">
-        <div id="presentation-container"></div>
+    <!-- TELA 3: APRESENTAÇÃO DE DESENHOS / VOTAÇÃO / PÓDIO -->
+    <div id="presentation-screen" class="screen" style="display: none;">
+        <div id="presentation-container">
+            <!-- Conteúdo de votação e pódio injetado pelo tv.js -->
+        </div>
     </div>
 
     <script type="module" src="/js/tv.js"></script>

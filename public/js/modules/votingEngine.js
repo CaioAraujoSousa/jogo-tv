@@ -1,8 +1,10 @@
 export function renderVotingScreen(container, data, socket) {
     container.innerHTML = '';
 
-    const totalCards = data.cards.length;
-    const maxVotes = Math.max(1, totalCards - 1);
+    // Conta apenas desenhos que pertencem a OUTROS jogadores
+    const otherCardsCount = data.cards.filter(c => c.artistId !== socket.id).length;
+// Limita a no máximo 3 votos (1º, 2º e 3º) conforme a regra de pontuação
+    const maxVotes = Math.min(3, otherCardsCount);
     let selectedVotes = [];
 
     const cardDiv = document.createElement('div');
@@ -80,19 +82,26 @@ export function renderVotingScreen(container, data, socket) {
         const isReady = (selectedVotes.length === maxVotes);
         const remaining = maxVotes - selectedVotes.length;
 
-        if (isReady) {
-            sendBtn.textContent = 'Confirmar Votos 🚀';
-            sendBtn.disabled = false;
-            sendBtn.style.background = '#22c55e';
-            sendBtn.style.opacity = '1';
-            sendBtn.style.cursor = 'pointer';
-        } else {
-            sendBtn.textContent = 'Selecione ' + remaining + ' preferência(s)';
-            sendBtn.disabled = true;
-            sendBtn.style.background = '#64748b';
-            sendBtn.style.opacity = '0.5';
-            sendBtn.style.cursor = 'not-allowed';
-        }
+        if (maxVotes === 0) {
+    // Caso só exista o próprio desenho na rodada
+    sendBtn.textContent = 'Avançar (Apenas seu desenho na tela) 🚀';
+    sendBtn.disabled = false;
+    sendBtn.style.background = '#22c55e';
+    sendBtn.style.opacity = '1';
+    sendBtn.style.cursor = 'pointer';
+} else if (isReady) {
+    sendBtn.textContent = 'Confirmar Votos 🚀';
+    sendBtn.disabled = false;
+    sendBtn.style.background = '#22c55e';
+    sendBtn.style.opacity = '1';
+    sendBtn.style.cursor = 'pointer';
+} else {
+    sendBtn.textContent = 'Selecione ' + remaining + ' preferência(s)';
+    sendBtn.disabled = true;
+    sendBtn.style.background = '#64748b';
+    sendBtn.style.opacity = '0.5';
+    sendBtn.style.cursor = 'not-allowed';
+}
     }
 
     sendBtn.addEventListener('click', () => {

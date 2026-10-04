@@ -81,15 +81,17 @@ class GameState {
     }
 
     startGame() {
-        this.isStarted = true;
-        this.currentRound = 1;
-        this.currentVotingRound = 0;
-        this.matchThemes = getRandomThemes(6);
-        this.drawings = {};
-        this.votes = {};
-        this.players.forEach(p => p.score = 0);
-        return this.getCurrentRoundData();
-    }
+    if (this.players.length < 2) return null; // Trava de segurança no backend
+
+    this.isStarted = true;
+    this.currentRound = 1;
+    this.currentVotingRound = 0;
+    this.matchThemes = getRandomThemes(6);
+    this.drawings = {};
+    this.votes = {};
+    this.players.forEach(p => p.score = 0);
+    return this.getCurrentRoundData();
+}
 
     getCurrentRoundData() {
         return {

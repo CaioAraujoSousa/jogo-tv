@@ -39,41 +39,55 @@ io.on('connection', (socket) => {
     });
 
     socket.on('start-game', () => {
-        if (gameState.players.length === 0) return;
-        if (gameState.players[0].id !== socket.id) return;
+    // TRAVA: Mínimo de 2 jogadores para iniciar
+    if (gameState.players.length < 2) {
+        socket.emit('error-message', 'É necessário pelo menos 2 jogadores para iniciar a partida!');
+        return;
+    }
+    if (gameState.players[0].id !== socket.id) return;
 
-        const roundData = gameState.startGame();
+    const roundData = gameState.startGame();
+    if (roundData) {
         io.emit('start-round', roundData);
-    });
+    }
+});
 
     socket.on('submit-drawing', (imageData) => {
-        const submittedCount = gameState.submitDrawing(socket.id, imageData);
-        io.emit('drawing-progress', { submitted: submittedCount, total: gameState.players.length });
+    // TRAVA: Impede espectadores de enviarem desenho
+    const isPlayer = gameState.players.some(p => p.id === socket.id);
+    if (!isPlayer) return;
 
-        if (gameState.allDrawingsSubmitted()) {
-            handleDrawingCompletion();
-        }
-    });
+    const submittedCount = gameState.submitDrawing(socket.id, imageData);
+    io.emit('drawing-progress', { submitted: submittedCount, total: gameState.players.length });
+
+    if (gameState.allDrawingsSubmitted()) {
+        handleDrawingCompletion();
+    }
+});
 
     socket.on('submit-votes', (data) => {
-        const roundNum = data.round;
-        const votesArray = data.votes;
-        
-        gameState.submitVote(socket.id, roundNum, votesArray);
+    // TRAVA: Impede espectadores de votarem
+    const isPlayer = gameState.players.some(p => p.id === socket.id);
+    if (!isPlayer) return;
 
-        if (gameState.allVotesSubmitted(roundNum)) {
-            handleVotingCompletion(roundNum);
-        }
-    });
+    const roundNum = data.round;
+    const votesArray = data.votes;
+    
+    gameState.submitVote(socket.id, roundNum, votesArray);
+
+    if (gameState.allVotesSubmitted(roundNum)) {
+        handleVotingCompletion(roundNum);
+    }
+});
 
     socket.on('return-to-lobby', () => {
-        if (gameState.players.length === 0) return;
-        if (gameState.players[0].id !== socket.id) return;
+    if (gameState.players.length === 0) return;
+    if (gameState.players[0].id !== socket.id) return;
 
-        gameState.returnToLobby();
-        io.emit('back-to-lobby', gameState.players);
-    });
-    
+    gameState.returnToLobby();
+    io.emit('back-to-lobby', gameState.players);
+});
+
     socket.on('disconnect', () => {
     console.log(`Dispositivo desconectado: ${socket.id}`);
 
