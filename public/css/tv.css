@@ -35,7 +35,7 @@ h1 {
 /* --- LOBBY LAYOUT --- */
 #lobby-screen {
     width: 100%;
-    max-width: 1100px;
+    max-width: 1150px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -44,13 +44,14 @@ h1 {
 .lobby-container {
     display: flex;
     gap: 30px;
-    width: 100%;
-    align-items: stretch;
+    align-items: flex-start;
     justify-content: center;
+    width: 100%;
+    margin: 0 auto;
 }
 
-/* Cards das Seções */
-.qr-section, .seats-section {
+/* Cards das Seções (Mapeados para os nomes do HTML: .qr-card e .seats-card) */
+.qr-card, .seats-card {
     background: #1e293b;
     border-radius: 20px;
     padding: 28px;
@@ -59,7 +60,7 @@ h1 {
 }
 
 /* Lado Esquerdo: QR Code */
-.qr-section {
+.qr-card {
     width: 320px;
     flex-shrink: 0;
     display: flex;
@@ -81,19 +82,26 @@ h1 {
 }
 
 /* Lado Direito: Assentos */
-.seats-section {
+.seats-card {
     flex: 1;
     display: flex;
     flex-direction: column;
 }
 
-.seats-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 16px;
-    margin-top: 20px;
+.seats-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
 }
 
+/* Grelha de Assentos (4 colunas lado a lado) */
+#seats-grid, .grid-seats {
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 16px;
+    width: 100%;
+}
 /* Cards de Cada Jogador / Lugar Vazio */
 .seat {
     background: #0f172a;
