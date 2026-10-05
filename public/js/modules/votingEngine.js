@@ -1,9 +1,16 @@
 export function renderVotingScreen(container, data, socket) {
     container.innerHTML = '';
 
+    // --- COLI AQUI O BLOCO ABAIXO ---
+    if (!data || !Array.isArray(data.cards)) {
+        container.innerHTML = '«div class="card"»«h2»Aguardando votação... ⏳«/h2»«/div»';
+        return;
+    }
+
     // Conta apenas desenhos que pertencem a OUTROS jogadores
     const otherCardsCount = data.cards.filter(c => c.artistId !== socket.id).length;
-// Limita a no máximo 3 votos (1º, 2º e 3º) conforme a regra de pontuação
+
+    // Limita a no máximo 3 votos (1º, 2º e 3º) conforme a regra de pontuação
     const maxVotes = Math.min(3, otherCardsCount);
     let selectedVotes = [];
 
@@ -105,7 +112,13 @@ export function renderVotingScreen(container, data, socket) {
     }
 
     sendBtn.addEventListener('click', () => {
-        if (selectedVotes.length !== maxVotes) return;
+        if (selectedVotes.length !== maxVotes && maxVotes > 0) return;
+
+        // Desativa o botão no clique para evitar lag e duplo envio
+        sendBtn.disabled = true;
+        sendBtn.style.opacity = '0.5';
+        sendBtn.textContent = 'Enviando votos... ⏳';
+
         socket.emit('submit-votes', { round: data.round, votes: selectedVotes });
 
         cardDiv.innerHTML = '';

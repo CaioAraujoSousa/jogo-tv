@@ -80,8 +80,10 @@ socket.on('update-lobby', (players) => {
     }
 });
 
-// Iniciar Partida pelo Celular
-document.getElementById('start-btn-mobile').addEventListener('click', () => {
+// Feedback instantâneo ao iniciar a partida (elimina a sensação de lag)
+document.getElementById('start-btn-mobile').addEventListener('click', (e) => {
+    e.target.disabled = true;
+    e.target.innerText = 'Iniciando partida... ⏳';
     socket.emit('start-game');
 });
 
@@ -111,10 +113,11 @@ socket.on('start-round', (data) => {
     themeBox.appendChild(roundSpan);
     themeBox.appendChild(themeTitle);
 
+    // Ajuste o tamanho do canvas para caber perfeitamente no ecrã:
     const canvas = document.createElement('canvas');
     canvas.id = 'paintCanvas';
-    canvas.width = 350;
-    canvas.height = 420;
+    canvas.width = 310;
+    canvas.height = 330;
 
     const toolbar = document.createElement('div');
     toolbar.className = 'toolbar';

@@ -88,7 +88,8 @@ export function initCanvas(canvasElement, clearBtn, submitBtn, socket, paletteCo
         submitBtn.addEventListener('click', () => {
             submitBtn.disabled = true;
             submitBtn.style.opacity = '0.5';
-            const imageData = canvasElement.toDataURL('image/png');
+            // Otimiza a imagem para envio leve e instantâneo
+            const imageData = canvasElement.toDataURL('image/jpeg', 0.7);
             socket.emit('submit-drawing', imageData);
         });
     }
