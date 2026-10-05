@@ -109,3 +109,57 @@ canvas { background: white; border-radius: 12px; cursor: crosshair; display: blo
     font-size: 0.8rem;
     color: #ffffff;
 }
+
+/* --- LARGURA DOS BOTÕES DA TOOLBAR (50%/50%) --- */
+.toolbar button {
+    flex: 1;
+}
+
+/* --- PALETA DE CORES --- */
+.palette-box {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+}
+
+.color-btn {
+    width: 32px !important;
+    height: 32px !important;
+    padding: 0 !important;
+    border-radius: 50% !important;
+    border: 2px solid #ffffff33 !important;
+    cursor: pointer;
+    transition: transform 0.15s, border-color 0.15s;
+}
+
+.color-btn.selected {
+    transform: scale(1.2);
+    border: 3px solid #ffffff !important;
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+}
+
+/* --- FERRAMENTA BORRACHA --- */
+.tools-box {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 10px;
+}
+
+.eraser-btn {
+    width: auto !important;
+    padding: 8px 16px !important;
+    font-size: 0.9rem !important;
+    background: #334155 !important;
+    border: 1px solid #475569 !important;
+    border-radius: 20px !important;
+    color: #94a3b8 !important;
+}
+
+.eraser-btn.active {
+    background: #e2e8f0 !important;
+    color: #0f172a !important;
+    font-weight: bold !important;
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.4);
+}

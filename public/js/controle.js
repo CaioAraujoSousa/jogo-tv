@@ -113,8 +113,8 @@ socket.on('start-round', (data) => {
 
     const canvas = document.createElement('canvas');
     canvas.id = 'paintCanvas';
-    canvas.width = 320;
-    canvas.height = 380;
+    canvas.width = 350;
+    canvas.height = 420;
 
     const toolbar = document.createElement('div');
     toolbar.className = 'toolbar';
@@ -160,13 +160,89 @@ socket.on('start-round', (data) => {
 });
 
 // FASE DE VOTAÇÃO
-socket.on('start-voting-round', (data) => {
+// FASE DE DESENHO
+socket.on('start-round', (data) => {
     if (!hasJoined) return;
     isGameStarted = true;
-    exibirTela('voting-screen');
+    exibirTela('drawing-screen');
 
-    const votingScreen = document.getElementById('voting-screen');
-    renderVotingScreen(votingScreen, data, socket);
+    const drawingScreen = document.getElementById('drawing-screen');
+    drawingScreen.innerHTML = '';
+
+    const themeBox = document.createElement('div');
+    themeBox.className = 'theme-box';
+
+    const roundSpan = document.createElement('span');
+    roundSpan.style.fontSize = '0.85rem';
+    roundSpan.style.color = '#94a3b8';
+    roundSpan.textContent = 'Rodada ' + data.round + ' de 6 - TEMA:';
+
+    const themeTitle = document.createElement('h3');
+    themeTitle.id = 'my-theme';
+    themeTitle.style.margin = '5px 0';
+    themeTitle.style.color = '#facc15';
+    themeTitle.textContent = data.theme;
+
+    themeBox.appendChild(roundSpan);
+    themeBox.appendChild(themeTitle);
+
+    // Containers para Paleta de Cores e Ferramentas (Borracha)
+    const paletteBox = document.createElement('div');
+    paletteBox.className = 'palette-box';
+
+    const toolsBox = document.createElement('div');
+    toolsBox.className = 'tools-box';
+
+    const canvas = document.createElement('canvas');
+    canvas.id = 'paintCanvas';
+    canvas.width = 350;
+    canvas.height = 420;
+
+    const toolbar = document.createElement('div');
+    toolbar.className = 'toolbar';
+
+    const clearBtn = document.createElement('button');
+    clearBtn.id = 'clear-btn';
+    clearBtn.style.background = '#ef4444';
+    clearBtn.textContent = 'Limpar Tudo';
+
+    const submitBtn = document.createElement('button');
+    submitBtn.id = 'submit-btn';
+    submitBtn.style.background = '#22c55e';
+    submitBtn.textContent = 'Enviar Desenho';
+
+    toolbar.appendChild(clearBtn);
+    toolbar.appendChild(submitBtn);
+
+    // Monta a ordem dos elementos no ecrã do telemóvel
+    drawingScreen.appendChild(themeBox);
+    drawingScreen.appendChild(paletteBox);
+    drawingScreen.appendChild(toolsBox);
+    drawingScreen.appendChild(canvas);
+    drawingScreen.appendChild(toolbar);
+
+    // Inicializa o canvas passando as caixas da paleta e da borracha
+    initCanvas(canvas, clearBtn, submitBtn, socket, paletteBox, toolsBox);
+
+    submitBtn.addEventListener('click', () => {
+        drawingScreen.innerHTML = '';
+        
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.style.marginTop = '50px';
+
+        const h2 = document.createElement('h2');
+        h2.textContent = 'Desenho Enviado! 🚀';
+
+        const p = document.createElement('p');
+        p.style.color = '#94a3b8';
+        p.style.fontSize = '1rem';
+        p.textContent = 'Aguardando os outros jogadores terminarem...';
+
+        card.appendChild(h2);
+        card.appendChild(p);
+        drawingScreen.appendChild(card);
+    });
 });
 
 // FIM DE JOGO
