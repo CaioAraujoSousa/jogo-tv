@@ -163,6 +163,19 @@ socket.on('start-round', (data) => {
 });
 
 // FASE DE VOTAÇÃO
+// FASE DE VOTAÇÃO
+socket.on('start-voting-round', (data) => {
+    if (!hasJoined) return;
+    isGameStarted = true;
+    exibirTela('voting-screen');
+
+    const votingScreen = document.getElementById('voting-screen');
+    if (votingScreen) {
+        votingScreen.innerHTML = '';
+        renderVotingScreen(votingScreen, data, socket);
+    }
+});
+
 // FASE DE DESENHO
 socket.on('start-round', (data) => {
     if (!hasJoined) return;
