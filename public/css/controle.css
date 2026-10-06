@@ -68,8 +68,19 @@ button:hover { background: #0284c7dd; }
 #error-msg { color: #f87171; margin-top: 10px; font-size: 0.9rem; }
 #drawing-screen, #voting-screen { display: none; width: 100%; max-width: 400px; text-align: center; }
 .theme-box { background: #1e293b; padding: 12px; border-radius: 10px; margin-bottom: 12px; border: 1px solid #38bdf8; }
-canvas { background: white; border-radius: 12px; cursor: crosshair; display: block; margin: 0 auto 15px auto; touch-action: none; box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
-.toolbar { display: flex; gap: 10px; }
+
+canvas { 
+    background: white; 
+    border-radius: 12px; 
+    cursor: crosshair; 
+    display: block; 
+    margin: 0 auto 8px auto; 
+    touch-action: none; 
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3); 
+    max-width: 100%;
+    max-height: 40vh !important; /* Adapta a altura ao ecrã do celular para não cortar botões */
+    object-fit: contain;
+}
 
 /* Botões da grelha de votação */
 .vote-grid {
