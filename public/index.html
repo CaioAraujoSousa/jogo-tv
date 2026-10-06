@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Display / TV - Cinema do Desenho</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <link rel="stylesheet" href="/css/tv.css">
+</head>
+<body>
+
+    <!-- TELA 1: LOBBY -->
+    <div id="lobby-screen" class="screen">
+        <header class="tv-header">
+            <h1>Cinema do Desenho 🎨</h1>
+            <p id="tv-status">Aponte a câmara do telemóvel para o QR Code para entrar na sala</p>
+        </header>
+
+        <main class="lobby-container">
+            <div class="qr-card">
+                <h3>Conecte seu celular</h3>
+                <div id="qrcode"></div>
+                <p id="room-url"></p>
+            </div>
+
+            <div class="seats-card">
+                <div class="seats-header">
+                    <h3>Jogadores Conectados</h3>
+                    <span class="badge"><span id="player-count">0</span>/8</span>
+                </div>
+                <div id="seats-grid" class="grid-seats">
+                    <!-- Lugares injetados pelo tv.js -->
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- TELA 2: RODADA DE DESENHO -->
+    <div id="game-screen" class="screen" style="display: none;">
+        <div class="drawing-phase-container">
+            <p class="phase-subtitle">Rodada <span id="round-number">1</span> de 6</p>
+            <h1 id="theme-display" class="current-theme">Tema da Rodada</h1>
+            <p class="instruction-text">Olhe para a tela do seu celular e faça o seu desenho! 🎨</p>
+        </div>
+    </div>
+
+    <!-- TELA 3: APRESENTAÇÃO DE DESENHOS / VOTAÇÃO / PÓDIO -->
+    <div id="presentation-screen" class="screen" style="display: none;">
+        <div id="presentation-container">
+            <!-- Conteúdo de votação e pódio injetado pelo tv.js -->
+        </div>
+    </div>
+
+    <script type="module" src="/js/tv.js"></script>
+</body>
+</html>
