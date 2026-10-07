@@ -5,15 +5,48 @@ const gameState = require('./src/gameState');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+
+// Heartbeat agressivo: detecta celulares desconectados em 5s
+const io = new Server(server, {
+    pingTimeout: 5000,
+    pingInterval: 10000
+});
 
 app.use(express.static('public'));
 
 app.get('/reset', (req, res) => {
+    clearRoundTimer();
     gameState.reset();
     io.emit('update-lobby', []);
     res.send('<h1>Sala resetada com sucesso! Volte ao jogo.</h1>');
 });
+
+// --- CONTROLE DE TEMPORIZADOR DO SERVIDOR ---
+let roundTimerInterval = null;
+let roundTimeLeft = 0;
+
+function clearRoundTimer() {
+    if (roundTimerInterval) {
+        clearInterval(roundTimerInterval);
+        roundTimerInterval = null;
+    }
+}
+
+function startRoundTimer(seconds, onTimeout) {
+    clearRoundTimer();
+    roundTimeLeft = seconds;
+    io.emit('timer-tick', roundTimeLeft);
+
+    roundTimerInterval = setInterval(() => {
+        roundTimeLeft--;
+        io.emit('timer-tick', roundTimeLeft);
+
+        if (roundTimeLeft <= 0) {
+            clearRoundTimer();
+            onTimeout();
+        }
+    }, 1000);
+}
 
 io.on('connection', (socket) => {
     console.log('Novo dispositivo conectado:', socket.id);
@@ -39,102 +72,126 @@ io.on('connection', (socket) => {
     });
 
     socket.on('start-game', () => {
-    // TRAVA: Mínimo de 2 jogadores para iniciar
-    if (gameState.players.length < 2) {
-        socket.emit('error-message', 'É necessário pelo menos 2 jogadores para iniciar a partida!');
-        return;
-    }
-    if (gameState.players[0].id !== socket.id) return;
+        if (gameState.players.length < 2) {
+            socket.emit('error-message', 'É necessário pelo menos 2 jogadores para iniciar a partida!');
+            return;
+        }
+        if (gameState.players[0].id !== socket.id) return;
 
-    const roundData = gameState.startGame();
-    if (roundData) {
-        io.emit('start-round', roundData);
-    }
-});
+        const roundData = gameState.startGame();
+        if (roundData) {
+            io.emit('start-round', roundData);
+            startRoundTimer(60, () => handleDrawingCompletion()); // 60 segundos para desenhar
+        }
+    });
 
     socket.on('submit-drawing', (imageData) => {
-    // TRAVA: Impede espectadores de enviarem desenho
-    const isPlayer = gameState.players.some(p => p.id === socket.id);
-    if (!isPlayer) return;
+        const isPlayer = gameState.players.some(p => p.id === socket.id);
+        if (!isPlayer) return;
 
-    const submittedCount = gameState.submitDrawing(socket.id, imageData);
-    io.emit('drawing-progress', { submitted: submittedCount, total: gameState.players.length });
+        const submittedCount = gameState.submitDrawing(socket.id, imageData);
+        io.emit('drawing-progress', { submitted: submittedCount, total: gameState.players.length });
 
-    if (gameState.allDrawingsSubmitted()) {
-        handleDrawingCompletion();
-    }
-});
+        if (gameState.allDrawingsSubmitted()) {
+            clearRoundTimer();
+            handleDrawingCompletion();
+        }
+    });
 
     socket.on('submit-votes', (data) => {
-    // TRAVA: Impede espectadores de votarem
-    const isPlayer = gameState.players.some(p => p.id === socket.id);
-    if (!isPlayer) return;
+        const isPlayer = gameState.players.some(p => p.id === socket.id);
+        if (!isPlayer) return;
 
-    const roundNum = data.round;
-    const votesArray = data.votes;
-    
-    gameState.submitVote(socket.id, roundNum, votesArray);
+        const roundNum = data.round;
+        const votesArray = data.votes;
+        
+        gameState.submitVote(socket.id, roundNum, votesArray);
 
-    if (gameState.allVotesSubmitted(roundNum)) {
-        handleVotingCompletion(roundNum);
-    }
-});
+        if (gameState.allVotesSubmitted(roundNum)) {
+            clearRoundTimer();
+            handleVotingCompletion(roundNum);
+        }
+    });
 
     socket.on('return-to-lobby', () => {
-    if (gameState.players.length === 0) return;
-    if (gameState.players[0].id !== socket.id) return;
+        if (gameState.players.length === 0) return;
+        if (gameState.players[0].id !== socket.id) return;
 
-    gameState.returnToLobby();
-    io.emit('back-to-lobby', gameState.players);
-});
+        clearRoundTimer();
+        gameState.returnToLobby();
+        io.emit('back-to-lobby', gameState.players);
+        io.emit('update-lobby', gameState.players);
+    });
 
     socket.on('disconnect', () => {
-    console.log(`Dispositivo desconectado: ${socket.id}`);
+        console.log(`Dispositivo desconectado: ${socket.id}`);
 
-    // Se a partida está rolando, NÃO remove o jogador do gameState nem avisa o lobby
-    if (gameState.isStarted) {
-        if (typeof gameState.setDisconnected === 'function') {
-            gameState.setDisconnected(socket.id);
+        if (gameState.isStarted) {
+            if (typeof gameState.setDisconnected === 'function') {
+                gameState.setDisconnected(socket.id);
+            }
+
+            // Remove o jogador inativo para atualizar a lista do lobby e contadores
+            gameState.removePlayer(socket.id);
+            io.emit('update-lobby', gameState.players);
+
+            // Avança a rodada se a saída do jogador completar os envios pendentes
+            if (gameState.allDrawingsSubmitted()) {
+                clearRoundTimer();
+                handleDrawingCompletion();
+            } else if (gameState.currentRound && gameState.allVotesSubmitted(gameState.currentRound)) {
+                clearRoundTimer();
+                handleVotingCompletion(gameState.currentRound);
+            }
+            return;
         }
 
-        // Se a saída dele destravar a contagem da rodada, avança o jogo
-        if (gameState.allDrawingsSubmitted()) {
-            handleDrawingCompletion();
-        } else if (gameState.currentRound && gameState.allVotesSubmitted(gameState.currentRound)) {
-            handleVotingCompletion(gameState.currentRound);
-        }
-        return;
-    }
-
-    gameState.removePlayer(socket.id);
-    io.emit('update-lobby', gameState.players);
-});
+        gameState.removePlayer(socket.id);
+        io.emit('update-lobby', gameState.players);
+    });
 });
 
 function handleDrawingCompletion() {
+    clearRoundTimer();
     const currentRound = gameState.currentRound;
 
     if (currentRound < 3) {
         gameState.currentRound++;
-        io.emit('start-round', gameState.getCurrentRoundData());
+        const roundData = gameState.getCurrentRoundData();
+        io.emit('start-round', roundData);
+        startRoundTimer(60, () => handleDrawingCompletion());
     } else if (currentRound === 3) {
-        io.emit('start-voting-round', gameState.getVotingCards(1));
+        const votingCards = gameState.getVotingCards(1);
+        io.emit('start-voting-round', votingCards);
+        startRoundTimer(30, () => handleVotingCompletion(1)); // 30 segundos para votar
     } else if (currentRound > 3 && currentRound < 6) {
         gameState.currentRound++;
-        io.emit('start-round', gameState.getCurrentRoundData());
+        const roundData = gameState.getCurrentRoundData();
+        io.emit('start-round', roundData);
+        startRoundTimer(60, () => handleDrawingCompletion());
     } else if (currentRound === 6) {
-        io.emit('start-voting-round', gameState.getVotingCards(4));
+        const votingCards = gameState.getVotingCards(4);
+        io.emit('start-voting-round', votingCards);
+        startRoundTimer(30, () => handleVotingCompletion(4));
     }
 }
 
 function handleVotingCompletion(roundNum) {
+    clearRoundTimer();
+
     if (roundNum < 3) {
-        io.emit('start-voting-round', gameState.getVotingCards(roundNum + 1));
+        const votingCards = gameState.getVotingCards(roundNum + 1);
+        io.emit('start-voting-round', votingCards);
+        startRoundTimer(30, () => handleVotingCompletion(roundNum + 1));
     } else if (roundNum === 3) {
         gameState.currentRound = 4;
-        io.emit('start-round', gameState.getCurrentRoundData());
+        const roundData = gameState.getCurrentRoundData();
+        io.emit('start-round', roundData);
+        startRoundTimer(60, () => handleDrawingCompletion());
     } else if (roundNum >= 4 && roundNum < 6) {
-        io.emit('start-voting-round', gameState.getVotingCards(roundNum + 1));
+        const votingCards = gameState.getVotingCards(roundNum + 1);
+        io.emit('start-voting-round', votingCards);
+        startRoundTimer(30, () => handleVotingCompletion(roundNum + 1));
     } else if (roundNum === 6) {
         const leaderboard = gameState.calculateFinalLeaderboard();
         io.emit('game-over', leaderboard);
