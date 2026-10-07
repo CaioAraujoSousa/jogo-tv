@@ -141,7 +141,9 @@ io.on('connection', (socket) => {
                 gameState.setDisconnected(socket.id);
             }
 
-            // Se a saída dele completar as submissões restantes de quem está online
+            // Notifica o frontend sobre a lista atualizada (para redefinir quem é o anfitrião ativo)
+            io.emit('update-lobby', gameState.players);
+
             if (!isTransitioning) {
                 if (gameState.allDrawingsSubmitted()) {
                     handleDrawingCompletion();
@@ -204,8 +206,18 @@ function handleVotingCompletion(roundNum) {
         io.emit('start-voting-round', votingCards);
         startRoundTimer(30, () => handleVotingCompletion(roundNum + 1));
     } else if (roundNum === 6) {
-        const leaderboard = gameState.calculateFinalLeaderboard();
-        io.emit('game-over', leaderboard);
+    const leaderboard = gameState.calculateFinalLeaderboard();
+    io.emit('game-over', leaderboard);
+
+    // TEMPORIZADOR AUTOMÁTICO DO PÓDIO (45 segundos)
+    // Se ninguém clicar, o servidor volta a sala para o lobby sozinho
+    startRoundTimer(45, () => {
+        clearRoundTimer();
+        isTransitioning = false;
+        gameState.returnToLobby();
+        io.emit('back-to-lobby', gameState.players);
+        io.emit('update-lobby', gameState.players);
+    });
     }
 }
 

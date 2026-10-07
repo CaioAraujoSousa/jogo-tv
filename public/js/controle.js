@@ -53,15 +53,31 @@ socket.on('error-message', (msg) => {
     document.getElementById('error-msg').innerText = msg;
 });
 
-// ATUALIZAÇÃO DO LOBBY
-// ATUALIZAÇÃO DO LOBBY
+// ATUALIZAÇÃO DO LOBBY & PROMOÇÃO DE ANFITRIÃO
 socket.on('update-lobby', (players) => {
+    // Filtra apenas quem continua conectado
+    const activePlayers = players.filter(p => !p.disconnected);
     const me = players.find(p => p.id === socket.id);
     hasJoined = !!me;
 
     if (!me) return;
 
-    isHost = players.length > 0 && players[0].id === socket.id;
+    // É anfitrião se for o primeiro jogador CONECTADO da lista
+    isHost = activePlayers.length > 0 && activePlayers[0].id === socket.id;
+
+    // Se estivermos na tela de Fim de Jogo e este celular se tornou o novo Anfitrião, exibe o botão
+    const gameOverCard = document.querySelector('#voting-screen .card');
+    if (gameOverCard && isHost && !document.getElementById('restart-btn-podium')) {
+        const restartBtn = document.createElement('button');
+        restartBtn.id = 'restart-btn-podium';
+        restartBtn.style.marginTop = '20px';
+        restartBtn.style.background = '#22c55e';
+        restartBtn.textContent = 'Voltar ao Lobby 🔄';
+        restartBtn.addEventListener('click', () => {
+            socket.emit('return-to-lobby');
+        });
+        gameOverCard.appendChild(restartBtn);
+    }
 
     if (isGameStarted) return;
 
@@ -74,7 +90,6 @@ socket.on('update-lobby', (players) => {
         document.getElementById('host-controls').style.display = 'block';
         document.getElementById('waiting-msg').style.display = 'none';
         
-        // RESETA O BOTÃO DO ANFITRIÃO PARA PARTIDAS EM SEQUÊNCIA
         const startBtn = document.getElementById('start-btn-mobile');
         if (startBtn) {
             startBtn.disabled = false;
@@ -83,7 +98,7 @@ socket.on('update-lobby', (players) => {
     } else {
         document.getElementById('host-controls').style.display = 'none';
         document.getElementById('waiting-msg').style.display = 'block';
-        document.getElementById('waiting-msg').innerText = 'Aguardando ' + players[0].name + ' iniciar a partida...';
+        document.getElementById('waiting-msg').innerText = 'Aguardando ' + (activePlayers[0] ? activePlayers[0].name : 'anfitrião') + ' iniciar a partida...';
     }
 });
 
