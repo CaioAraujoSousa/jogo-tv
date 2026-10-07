@@ -43,7 +43,11 @@ function startRoundTimer(seconds, onTimeout) {
 
         if (roundTimeLeft <= 0) {
             clearRoundTimer();
-            onTimeout();
+            
+            // Tolerância de 1.2s para os desenhos enviados no último segundo chegarem via 4G/Wi-Fi
+            setTimeout(() => {
+                onTimeout();
+            }, 1200);
         }
     }, 1000);
 }
@@ -126,26 +130,17 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         console.log(`Dispositivo desconectado: ${socket.id}`);
 
+        // Se o jogo está rolando, NÃO remove os pontos nem o jogador do gameState
         if (gameState.isStarted) {
             if (typeof gameState.setDisconnected === 'function') {
                 gameState.setDisconnected(socket.id);
             }
-
-            // Remove o jogador inativo para atualizar a lista do lobby e contadores
-            gameState.removePlayer(socket.id);
-            io.emit('update-lobby', gameState.players);
-
-            // Avança a rodada se a saída do jogador completar os envios pendentes
-            if (gameState.allDrawingsSubmitted()) {
-                clearRoundTimer();
-                handleDrawingCompletion();
-            } else if (gameState.currentRound && gameState.allVotesSubmitted(gameState.currentRound)) {
-                clearRoundTimer();
-                handleVotingCompletion(gameState.currentRound);
-            }
+            // O temporizador (startRoundTimer) avança o jogo automaticamente
+            // sem apagar a pontuação do jogador para o pódio.
             return;
         }
 
+        // Só remove do jogo se estiver na tela do Lobby (antes de começar)
         gameState.removePlayer(socket.id);
         io.emit('update-lobby', gameState.players);
     });

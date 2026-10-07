@@ -90,38 +90,29 @@ socket.on('start-round', (data) => {
     document.getElementById('theme-display').innerText = data.theme;
 });
 
-// OUVINTE DO TEMPORIZADOR NA TV
 socket.on('timer-tick', (timeLeft) => {
-    let tvTimer = document.getElementById('tv-timer-display');
-
-    if (!tvTimer) {
-        tvTimer = document.createElement('div');
-        tvTimer.id = 'tv-timer-display';
-        tvTimer.style.position = 'fixed';
-        tvTimer.style.top = '20px';
-        tvTimer.style.right = '30px';
-        tvTimer.style.fontSize = '2rem';
-        tvTimer.style.fontWeight = 'bold';
-        tvTimer.style.color = '#facc15';
-        tvTimer.style.background = '#1e293b';
-        tvTimer.style.padding = '10px 22px';
-        tvTimer.style.borderRadius = '16px';
-        tvTimer.style.border = '2px solid #38bdf8';
-        tvTimer.style.boxShadow = '0 0 15px rgba(56, 189, 248, 0.4)';
-        tvTimer.style.zIndex = '9999';
-        document.body.appendChild(tvTimer);
+    const tvTimer = document.getElementById('tv-timer-display');
+    if (tvTimer) {
+        tvTimer.style.display = 'block';
+        tvTimer.textContent = '⏱️ ' + timeLeft + 's';
+        if (timeLeft <= 10) {
+            tvTimer.style.color = '#ef4444';
+            tvTimer.style.borderColor = '#ef4444';
+        } else {
+            tvTimer.style.color = '#facc15';
+            tvTimer.style.borderColor = '#38bdf8';
+        }
     }
+});
 
-    tvTimer.style.display = 'block';
-    tvTimer.textContent = '⏱️ ' + timeLeft + 's';
+socket.on('back-to-lobby', () => {
+    const tvTimer = document.getElementById('tv-timer-display');
+    if (tvTimer) tvTimer.style.display = 'none';
+});
 
-    if (timeLeft <= 10) {
-        tvTimer.style.color = '#ef4444';
-        tvTimer.style.borderColor = '#ef4444';
-    } else {
-        tvTimer.style.color = '#facc15';
-        tvTimer.style.borderColor = '#38bdf8';
-    }
+socket.on('game-over', () => {
+    const tvTimer = document.getElementById('tv-timer-display');
+    if (tvTimer) tvTimer.style.display = 'none';
 });
 
 socket.on('back-to-lobby', () => {

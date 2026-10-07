@@ -162,39 +162,45 @@ socket.on('start-round', (data) => {
     });
 });
 
-// OUVINTE DO TEMPORIZADOR
-socket.on('timer-tick', (timeLeft) => {
-    let timerEl = document.getElementById('game-timer');
+let hasSubmittedCurrentRound = false;
 
-    // Cria o elemento visual se ainda não existir na tela
-    if (!timerEl) {
-        timerEl = document.createElement('div');
-        timerEl.id = 'game-timer';
-        timerEl.style.position = 'fixed';
-        timerEl.style.top = '10px';
-        timerEl.style.right = '15px';
-        timerEl.style.fontWeight = 'bold';
-        timerEl.style.fontSize = '1rem';
-        timerEl.style.color = '#facc15';
-        timerEl.style.background = '#1e293b';
-        timerEl.style.padding = '6px 12px';
-        timerEl.style.borderRadius = '20px';
-        timerEl.style.border = '1px solid #38bdf8';
-        timerEl.style.zIndex = '9999';
-        timerEl.style.boxShadow = '0 4px 10px rgba(0,0,0,0.3)';
-        document.body.appendChild(timerEl);
+// Reseta a trava a cada nova rodada de desenho
+socket.on('start-round', (data) => {
+    hasSubmittedCurrentRound = false;
+    // ... seu código existente da nova rodada ...
+});
+
+// Botão manual de enviar desenho
+btnEnviar.addEventListener('click', () => {
+    enviarDesenhoAtual();
+});
+
+// Função centralizada para enviar o desenho (manual ou automática)
+function enviarDesenhoAtual() {
+    if (hasSubmittedCurrentRound) return;
+    hasSubmittedCurrentRound = true;
+
+    // Obtém o canvas atual e comprime em JPEG
+    const canvas = document.getElementById('drawing-canvas');
+    if (canvas) {
+        const imageData = canvas.toDataURL('image/jpeg', 0.5);
+        socket.emit('submit-drawing', imageData);
+        
+        // Atualiza a interface
+        exibirTela('waiting-screen'); // Ou altera estado do botão para enviado
     }
+}
 
-    timerEl.style.display = 'block';
-    timerEl.textContent = '⏱️ ' + timeLeft + 's';
+// OUVINTE DO TEMPORIZADOR COM AUTO-SUBMIT
+socket.on('timer-tick', (timeLeft) => {
+    // ... seu código de atualizar a div do timer ...
 
-    // Fica vermelho nos últimos 10 segundos
-    if (timeLeft <= 10) {
-        timerEl.style.color = '#ef4444';
-        timerEl.style.borderColor = '#ef4444';
-    } else {
-        timerEl.style.color = '#facc15';
-        timerEl.style.borderColor = '#38bdf8';
+    // AUTO-SUBMIT: Se o tempo zerou e o jogador ainda não enviou na tela de desenho
+    const drawingScreen = document.getElementById('drawing-screen');
+    const isDrawingActive = drawingScreen && drawingScreen.style.display !== 'none';
+
+    if (timeLeft <= 0 && isDrawingActive && !hasSubmittedCurrentRound) {
+        enviarDesenhoAtual();
     }
 });
 
