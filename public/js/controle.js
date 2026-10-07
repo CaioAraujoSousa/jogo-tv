@@ -54,6 +54,7 @@ socket.on('error-message', (msg) => {
 });
 
 // ATUALIZAÇÃO DO LOBBY
+// ATUALIZAÇÃO DO LOBBY
 socket.on('update-lobby', (players) => {
     const me = players.find(p => p.id === socket.id);
     hasJoined = !!me;
@@ -72,6 +73,13 @@ socket.on('update-lobby', (players) => {
     if (isHost) {
         document.getElementById('host-controls').style.display = 'block';
         document.getElementById('waiting-msg').style.display = 'none';
+        
+        // RESETA O BOTÃO DO ANFITRIÃO PARA PARTIDAS EM SEQUÊNCIA
+        const startBtn = document.getElementById('start-btn-mobile');
+        if (startBtn) {
+            startBtn.disabled = false;
+            startBtn.innerText = 'Iniciar Partida';
+        }
     } else {
         document.getElementById('host-controls').style.display = 'none';
         document.getElementById('waiting-msg').style.display = 'block';
@@ -298,6 +306,7 @@ socket.on('game-over', (leaderboard) => {
 });
 
 // RETORNO AO LOBBY
+// RETORNO AO LOBBY
 socket.on('back-to-lobby', (players) => {
     isGameStarted = false;
     const timerEl = document.getElementById('game-timer');
@@ -309,8 +318,17 @@ socket.on('back-to-lobby', (players) => {
         hasJoined = true;
         exibirTela('waiting-screen');
         isHost = players.length > 0 && players[0].id === socket.id;
+        
         document.getElementById('host-controls').style.display = isHost ? 'block' : 'none';
         document.getElementById('waiting-msg').style.display = isHost ? 'none' : 'block';
+        
+        // RESETA O BOTÃO DO ANFITRIÃO AO VOLTAR DA PARTIDA ANTERIOR
+        const startBtn = document.getElementById('start-btn-mobile');
+        if (startBtn) {
+            startBtn.disabled = false;
+            startBtn.innerText = 'Iniciar Partida';
+        }
+
         if (!isHost) {
             document.getElementById('waiting-msg').innerText = 'Aguardando ' + players[0].name + ' iniciar a partida...';
         }
