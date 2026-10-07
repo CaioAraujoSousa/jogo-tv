@@ -2,7 +2,7 @@ const socket = io();
 const controlUrl = window.location.origin + '/controle.html';
 let isGameStarted = false;
 
-// QR Code da sala
+// QR CODE DA SALA
 document.getElementById('room-url').innerText = controlUrl;
 new QRCode(document.getElementById("qrcode"), {
     text: controlUrl,
@@ -12,7 +12,7 @@ new QRCode(document.getElementById("qrcode"), {
 
 const seatsGrid = document.getElementById('seats-grid');
 
-// Gerenciador Central de Telas para a TV
+// GERENCIADOR CENTRAL DE TELAS DA TV
 function exibirTelaTV(idTelaDesejada) {
     const telas = ['lobby-screen', 'game-screen', 'presentation-screen'];
     telas.forEach(id => {
@@ -26,7 +26,7 @@ function exibirTelaTV(idTelaDesejada) {
     }
 }
 
-// Renderização dos Lugares / Assentos no Lobby
+// RENDERIZAÇÃO DOS LUGARES / ASSENTOS NO LOBBY
 function renderSeats(players) {
     seatsGrid.innerHTML = '';
     document.getElementById('player-count').innerText = players.length;
@@ -70,59 +70,79 @@ function renderSeats(players) {
 
 renderSeats([]);
 
-// Atualização do Lobby
+// ATUALIZAÇÃO DO LOBBY
 socket.on('update-lobby', (players) => {
-    // Atualiza os dados dos assentos
     renderSeats(players);
 
-    // Garante que a tela do lobby só fique visível se o jogo NÃO começou
     if (!isGameStarted) {
         exibirTelaTV('lobby-screen');
     }
 });
 
-// FASE DE DESENHO (TELA PRINCIPAL)
+// FASE DE DESENHO
 socket.on('start-round', (data) => {
     isGameStarted = true;
     exibirTelaTV('game-screen');
 
     document.getElementById('round-number').innerText = data.round;
     document.getElementById('theme-display').innerText = data.theme;
-});
 
-socket.on('timer-tick', (timeLeft) => {
-    const tvTimer = document.getElementById('tv-timer-display');
-    if (tvTimer) {
-        tvTimer.style.display = 'block';
-        tvTimer.textContent = '⏱️ ' + timeLeft + 's';
-        if (timeLeft <= 10) {
-            tvTimer.style.color = '#ef4444';
-            tvTimer.style.borderColor = '#ef4444';
-        } else {
-            tvTimer.style.color = '#facc15';
-            tvTimer.style.borderColor = '#38bdf8';
-        }
+    // Reseta mensagem de progresso de envio
+    const progressEl = document.getElementById('drawing-progress-display');
+    if (progressEl) {
+        progressEl.innerText = 'Aguardando desenhos...';
     }
 });
 
-socket.on('back-to-lobby', () => {
-    const tvTimer = document.getElementById('tv-timer-display');
-    if (tvTimer) tvTimer.style.display = 'none';
+// PROGRESSO DE ENVIO DOS DESENHOS
+socket.on('drawing-progress', (data) => {
+    let progressEl = document.getElementById('drawing-progress-display');
+    if (!progressEl) {
+        progressEl = document.createElement('div');
+        progressEl.id = 'drawing-progress-display';
+        progressEl.style.marginTop = '15px';
+        progressEl.style.fontSize = '1.3rem';
+        progressEl.style.color = '#38bdf8';
+        progressEl.style.fontWeight = 'bold';
+
+        const gameScreen = document.getElementById('game-screen');
+        if (gameScreen) gameScreen.appendChild(progressEl);
+    }
+    progressEl.innerText = `🎨 ${data.submitted} de ${data.total} desenhos recebidos`;
 });
 
-socket.on('game-over', () => {
-    const tvTimer = document.getElementById('tv-timer-display');
-    if (tvTimer) tvTimer.style.display = 'none';
-});
+// TEMPORIZADOR VISUAL DA TV
+socket.on('timer-tick', (timeLeft) => {
+    let tvTimer = document.getElementById('tv-timer-display');
 
-socket.on('back-to-lobby', () => {
-    const tvTimer = document.getElementById('tv-timer-display');
-    if (tvTimer) tvTimer.style.display = 'none';
-});
+    if (!tvTimer) {
+        tvTimer = document.createElement('div');
+        tvTimer.id = 'tv-timer-display';
+        tvTimer.style.position = 'fixed';
+        tvTimer.style.top = '20px';
+        tvTimer.style.right = '30px';
+        tvTimer.style.fontSize = '2rem';
+        tvTimer.style.fontWeight = 'bold';
+        tvTimer.style.color = '#facc15';
+        tvTimer.style.background = '#1e293b';
+        tvTimer.style.padding = '10px 22px';
+        tvTimer.style.borderRadius = '16px';
+        tvTimer.style.border = '2px solid #38bdf8';
+        tvTimer.style.boxShadow = '0 0 15px rgba(56, 189, 248, 0.4)';
+        tvTimer.style.zIndex = '99999';
+        document.body.appendChild(tvTimer);
+    }
 
-socket.on('game-over', () => {
-    const tvTimer = document.getElementById('tv-timer-display');
-    if (tvTimer) tvTimer.style.display = 'none';
+    tvTimer.style.display = 'block';
+    tvTimer.textContent = '⏱️ ' + timeLeft + 's';
+
+    if (timeLeft <= 10) {
+        tvTimer.style.color = '#ef4444';
+        tvTimer.style.borderColor = '#ef4444';
+    } else {
+        tvTimer.style.color = '#facc15';
+        tvTimer.style.borderColor = '#38bdf8';
+    }
 });
 
 // FASE DE VOTAÇÃO (APRESENTAÇÃO DOS DESENHOS)
@@ -133,7 +153,6 @@ socket.on('start-voting-round', (data) => {
     const container = document.getElementById('presentation-container');
     container.innerHTML = '';
 
-    // Cabeçalho
     const headerDiv = document.createElement('div');
     headerDiv.style.marginBottom = '25px';
 
@@ -159,7 +178,6 @@ socket.on('start-voting-round', (data) => {
     headerDiv.appendChild(themeH1);
     headerDiv.appendChild(instructionP);
 
-    // Grelha de desenhos
     const gridDiv = document.createElement('div');
     gridDiv.style.display = 'flex';
     gridDiv.style.flexWrap = 'wrap';
@@ -181,7 +199,6 @@ socket.on('start-voting-round', (data) => {
         cardDiv.style.boxShadow = '0 8px 20px rgba(0,0,0,0.4)';
         cardDiv.style.width = '220px';
 
-        // Círculo com o Número
         const numCircle = document.createElement('div');
         numCircle.style.background = card.color;
         numCircle.style.color = '#ffffff';
@@ -197,7 +214,6 @@ socket.on('start-voting-round', (data) => {
         numCircle.style.boxShadow = '0 4px 10px rgba(0,0,0,0.3)';
         numCircle.textContent = card.number;
 
-        // Imagem do Desenho
         const img = document.createElement('img');
         img.src = card.imageData;
         img.alt = `Desenho ${card.number}`;
@@ -216,8 +232,13 @@ socket.on('start-voting-round', (data) => {
     container.appendChild(gridDiv);
 });
 
+// FIM DE JOGO (PÓDIO FINAL)
 socket.on('game-over', (leaderboard) => {
     isGameStarted = true;
+    
+    const tvTimer = document.getElementById('tv-timer-display');
+    if (tvTimer) tvTimer.style.display = 'none';
+
     exibirTelaTV('presentation-screen');
 
     const container = document.getElementById('presentation-container');
@@ -243,7 +264,6 @@ socket.on('game-over', (leaderboard) => {
     container.appendChild(titleH1);
     container.appendChild(podiumWrapper);
 
-    // Demais colocações (do 4º em diante)
     if (leaderboard.length > 3) {
         const restList = document.createElement('div');
         restList.className = 'rest-leaderboard';
@@ -251,7 +271,7 @@ socket.on('game-over', (leaderboard) => {
             const p = leaderboard[i];
             const row = document.createElement('div');
             row.className = 'rest-row';
-            row.textContent = `\({i + 1}º\){p.avatar} \({p.name} -\){p.score} pts`;
+            row.textContent = `${i + 1}º ${p.avatar} ${p.name} - ${p.score} pts`;
             restList.appendChild(row);
         }
         container.appendChild(restList);
@@ -288,6 +308,10 @@ function createPillar(player, rank, type) {
 // RETORNO AO LOBBY
 socket.on('back-to-lobby', (players) => {
     isGameStarted = false;
+
+    const tvTimer = document.getElementById('tv-timer-display');
+    if (tvTimer) tvTimer.style.display = 'none';
+
     exibirTelaTV('lobby-screen');
     renderSeats(players);
 });

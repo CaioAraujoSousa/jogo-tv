@@ -10,6 +10,7 @@
 </head>
 <body>
     <div id="tv-timer-display" style="display: none; position: fixed; top: 20px; right: 30px; font-size: 2rem; font-weight: bold; color: #facc15; background: #1e293b; padding: 10px 22px; border-radius: 16px; border: 2px solid #38bdf8; box-shadow: 0 0 15px rgba(56,189,248,0.4); z-index: 99999;"></div>
+
     <!-- TELA 1: LOBBY -->
     <div id="lobby-screen" class="screen">
         <header class="tv-header">
@@ -42,6 +43,7 @@
             <p class="phase-subtitle">Rodada <span id="round-number">1</span> de 6</p>
             <h1 id="theme-display" class="current-theme">Tema da Rodada</h1>
             <p class="instruction-text">Olhe para a tela do seu celular e faça o seu desenho! 🎨</p>
+            <p id="drawing-progress-display" style="margin-top: 15px; font-size: 1.3rem; color: #38bdf8; font-weight: bold;"></p>
         </div>
     </div>
 
@@ -52,6 +54,6 @@
         </div>
     </div>
 
-    <script type="module" src="/js/tv.js"></script>
+    <script type="module" src="/js/tv.js?v=3"></script>
 </body>
 </html>

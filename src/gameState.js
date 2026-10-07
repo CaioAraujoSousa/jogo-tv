@@ -32,7 +32,6 @@ class GameState {
         this.votes = {};
     }
 
-    // Adicionar dentro da classe GameState no arquivo src/gameState.js
     returnToLobby() {
         this.isStarted = false;
         this.currentRound = 0;
@@ -40,7 +39,13 @@ class GameState {
         this.matchThemes = [];
         this.drawings = {};
         this.votes = {};
-        this.players.forEach(p => p.score = 0);
+        
+        // Remove jogadores que caíram durante a partida e reseta os ativos
+        this.players = this.players.filter(p => !p.disconnected);
+        this.players.forEach(p => {
+            p.score = 0;
+            p.disconnected = false;
+        });
     }
 
     reset() {
@@ -81,17 +86,20 @@ class GameState {
     }
 
     startGame() {
-    if (this.players.length < 2) return null; // Trava de segurança no backend
+        if (this.players.length < 2) return null;
 
-    this.isStarted = true;
-    this.currentRound = 1;
-    this.currentVotingRound = 0;
-    this.matchThemes = getRandomThemes(6);
-    this.drawings = {};
-    this.votes = {};
-    this.players.forEach(p => p.score = 0);
-    return this.getCurrentRoundData();
-}
+        this.isStarted = true;
+        this.currentRound = 1;
+        this.currentVotingRound = 0;
+        this.matchThemes = getRandomThemes(6);
+        this.drawings = {};
+        this.votes = {};
+        this.players.forEach(p => {
+            p.score = 0;
+            p.disconnected = false;
+        });
+        return this.getCurrentRoundData();
+    }
 
     getCurrentRoundData() {
         return {
@@ -165,15 +173,15 @@ class GameState {
             });
 
             Object.values(roundVotes).forEach(voteList => {
-                if (voteList[0] && artistMap[voteList[0]]) {
+                if (voteList && voteList[0] && artistMap[voteList[0]]) {
                     const p = this.players.find(player => player.id === artistMap[voteList[0]]);
                     if (p) p.score += 50;
                 }
-                if (voteList[1] && artistMap[voteList[1]]) {
+                if (voteList && voteList[1] && artistMap[voteList[1]]) {
                     const p = this.players.find(player => player.id === artistMap[voteList[1]]);
                     if (p) p.score += 30;
                 }
-                if (voteList[2] && artistMap[voteList[2]]) {
+                if (voteList && voteList[2] && artistMap[voteList[2]]) {
                     const p = this.players.find(player => player.id === artistMap[voteList[2]]);
                     if (p) p.score += 20;
                 }

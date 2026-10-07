@@ -4,10 +4,11 @@ import { renderVotingScreen } from './modules/votingEngine.js?v=3';
 const socket = io();
 let selectedAvatar = '🦊';
 let isHost = false;
-let isGameStarted = false; // Trava de estado da partida
-let hasJoined = false; // Identifica se este celular está ativamente na partida
+let isGameStarted = false;
+let hasJoined = false;
+let hasSubmittedCurrentRound = false;
 
-// Gerenciador Central de Exibição de Telas
+// GERENCIADOR CENTRAL DE EXIBIÇÃO DE TELAS
 function exibirTela(idTelaDesejada) {
     const telas = ['login-screen', 'waiting-screen', 'drawing-screen', 'voting-screen'];
     
@@ -18,7 +19,6 @@ function exibirTela(idTelaDesejada) {
 
     let telaAtiva = document.getElementById(idTelaDesejada);
     
-    // Garante a existência do container de votação caso ainda não esteja no DOM
     if (!telaAtiva && idTelaDesejada === 'voting-screen') {
         telaAtiva = document.createElement('div');
         telaAtiva.id = 'voting-screen';
@@ -30,7 +30,7 @@ function exibirTela(idTelaDesejada) {
     }
 }
 
-// Seleção de Avatar
+// SELEÇÃO DE AVATAR
 document.querySelectorAll('.avatar-option').forEach(item => {
     item.addEventListener('click', (e) => {
         document.querySelectorAll('.avatar-option').forEach(a => a.classList.remove('selected'));
@@ -39,7 +39,7 @@ document.querySelectorAll('.avatar-option').forEach(item => {
     });
 });
 
-// Entrar no Jogo
+// ENTRAR NO JOGO
 document.getElementById('join-btn').addEventListener('click', () => {
     const name = document.getElementById('nickname').value.trim();
     if (!name) {
@@ -62,7 +62,6 @@ socket.on('update-lobby', (players) => {
 
     isHost = players.length > 0 && players[0].id === socket.id;
 
-    // SE A PARTIDA JÁ COMEÇOU, NÃO REABRE A TELA DE ESPERA/LOBBY
     if (isGameStarted) return;
 
     exibirTela('waiting-screen');
@@ -80,70 +79,27 @@ socket.on('update-lobby', (players) => {
     }
 });
 
-// Feedback instantâneo ao iniciar a partida (elimina a sensação de lag)
+// BOTAO INICIAR (ANFITRIÃO)
 document.getElementById('start-btn-mobile').addEventListener('click', (e) => {
     e.target.disabled = true;
     e.target.innerText = 'Iniciando partida... ⏳';
     socket.emit('start-game');
 });
 
-// FASE DE DESENHO
-socket.on('start-round', (data) => {
-    if (!hasJoined) return;
-    isGameStarted = true;
-    exibirTela('drawing-screen');
+// FUNÇÃO CENTRALIZADA DE ENVIO (MANUAL E AUTOMÁTICA)
+function enviarDesenhoAtual() {
+    if (hasSubmittedCurrentRound) return;
+    hasSubmittedCurrentRound = true;
+
+    const canvas = document.getElementById('paintCanvas');
+    if (canvas) {
+        const imageData = canvas.toDataURL('image/jpeg', 0.5);
+        socket.emit('submit-drawing', imageData);
+    }
 
     const drawingScreen = document.getElementById('drawing-screen');
-    drawingScreen.innerHTML = '';
-
-    const themeBox = document.createElement('div');
-    themeBox.className = 'theme-box';
-
-    const roundSpan = document.createElement('span');
-    roundSpan.style.fontSize = '0.85rem';
-    roundSpan.style.color = '#94a3b8';
-    roundSpan.textContent = 'Rodada ' + data.round + ' de 6 - TEMA:';
-
-    const themeTitle = document.createElement('h3');
-    themeTitle.id = 'my-theme';
-    themeTitle.style.margin = '5px 0';
-    themeTitle.style.color = '#facc15';
-    themeTitle.textContent = data.theme;
-
-    themeBox.appendChild(roundSpan);
-    themeBox.appendChild(themeTitle);
-
-    // Ajuste o tamanho do canvas para caber perfeitamente no ecrã:
-    const canvas = document.createElement('canvas');
-    canvas.id = 'paintCanvas';
-    canvas.width = 310;
-    canvas.height = 330;
-
-    const toolbar = document.createElement('div');
-    toolbar.className = 'toolbar';
-
-    const clearBtn = document.createElement('button');
-    clearBtn.id = 'clear-btn';
-    clearBtn.style.background = '#ef4444';
-    clearBtn.textContent = 'Limpar';
-
-    const submitBtn = document.createElement('button');
-    submitBtn.id = 'submit-btn';
-    submitBtn.style.background = '#22c55e';
-    submitBtn.textContent = 'Enviar Desenho';
-
-    toolbar.appendChild(clearBtn);
-    toolbar.appendChild(submitBtn);
-
-    drawingScreen.appendChild(themeBox);
-    drawingScreen.appendChild(canvas);
-    drawingScreen.appendChild(toolbar);
-
-    initCanvas(canvas, clearBtn, submitBtn, socket);
-
-    submitBtn.addEventListener('click', () => {
+    if (drawingScreen) {
         drawingScreen.innerHTML = '';
-        
         const card = document.createElement('div');
         card.className = 'card';
         card.style.marginTop = '50px';
@@ -159,79 +115,14 @@ socket.on('start-round', (data) => {
         card.appendChild(h2);
         card.appendChild(p);
         drawingScreen.appendChild(card);
-    });
-});
-
-let hasSubmittedCurrentRound = false;
-
-// Reseta a trava a cada nova rodada de desenho
-socket.on('start-round', (data) => {
-    hasSubmittedCurrentRound = false;
-    // ... seu código existente da nova rodada ...
-});
-
-// Botão manual de enviar desenho
-btnEnviar.addEventListener('click', () => {
-    enviarDesenhoAtual();
-});
-
-// Função centralizada para enviar o desenho (manual ou automática)
-function enviarDesenhoAtual() {
-    if (hasSubmittedCurrentRound) return;
-    hasSubmittedCurrentRound = true;
-
-    // Obtém o canvas atual e comprime em JPEG
-    const canvas = document.getElementById('drawing-canvas');
-    if (canvas) {
-        const imageData = canvas.toDataURL('image/jpeg', 0.5);
-        socket.emit('submit-drawing', imageData);
-        
-        // Atualiza a interface
-        exibirTela('waiting-screen'); // Ou altera estado do botão para enviado
     }
 }
 
-// OUVINTE DO TEMPORIZADOR COM AUTO-SUBMIT
-socket.on('timer-tick', (timeLeft) => {
-    // ... seu código de atualizar a div do timer ...
-
-    // AUTO-SUBMIT: Se o tempo zerou e o jogador ainda não enviou na tela de desenho
-    const drawingScreen = document.getElementById('drawing-screen');
-    const isDrawingActive = drawingScreen && drawingScreen.style.display !== 'none';
-
-    if (timeLeft <= 0 && isDrawingActive && !hasSubmittedCurrentRound) {
-        enviarDesenhoAtual();
-    }
-});
-
-// Oculta o timer ao retornar ao lobby
-socket.on('back-to-lobby', () => {
-    const timerEl = document.getElementById('game-timer');
-    if (timerEl) timerEl.style.display = 'none';
-});
-
-socket.on('game-over', () => {
-    const timerEl = document.getElementById('game-timer');
-    if (timerEl) timerEl.style.display = 'none';
-});
-
-// FASE DE VOTAÇÃO
-socket.on('start-voting-round', (data) => {
-    if (!hasJoined) return;
-    isGameStarted = true;
-    exibirTela('voting-screen');
-
-    const votingScreen = document.getElementById('voting-screen');
-    if (votingScreen) {
-        votingScreen.innerHTML = '';
-        renderVotingScreen(votingScreen, data, socket);
-    }
-});
-
-// FASE DE DESENHO
+// FASE DE DESENHO (OUVINTE ÚNICO)
 socket.on('start-round', (data) => {
     if (!hasJoined) return;
     isGameStarted = true;
+    hasSubmittedCurrentRound = false; // Reseta a trava da nova rodada
     exibirTela('drawing-screen');
 
     const drawingScreen = document.getElementById('drawing-screen');
@@ -254,7 +145,6 @@ socket.on('start-round', (data) => {
     themeBox.appendChild(roundSpan);
     themeBox.appendChild(themeTitle);
 
-    // Containers para Paleta de Cores e Ferramentas (Borracha)
     const paletteBox = document.createElement('div');
     paletteBox.className = 'palette-box';
 
@@ -263,8 +153,8 @@ socket.on('start-round', (data) => {
 
     const canvas = document.createElement('canvas');
     canvas.id = 'paintCanvas';
-    canvas.width = 350;
-    canvas.height = 420;
+    canvas.width = 310;
+    canvas.height = 330;
 
     const toolbar = document.createElement('div');
     toolbar.className = 'toolbar';
@@ -282,35 +172,72 @@ socket.on('start-round', (data) => {
     toolbar.appendChild(clearBtn);
     toolbar.appendChild(submitBtn);
 
-    // Monta a ordem dos elementos no ecrã do telemóvel
     drawingScreen.appendChild(themeBox);
     drawingScreen.appendChild(paletteBox);
     drawingScreen.appendChild(toolsBox);
     drawingScreen.appendChild(canvas);
     drawingScreen.appendChild(toolbar);
 
-    // Inicializa o canvas passando as caixas da paleta e da borracha
     initCanvas(canvas, clearBtn, submitBtn, socket, paletteBox, toolsBox);
 
     submitBtn.addEventListener('click', () => {
-        drawingScreen.innerHTML = '';
-        
-        const card = document.createElement('div');
-        card.className = 'card';
-        card.style.marginTop = '50px';
-
-        const h2 = document.createElement('h2');
-        h2.textContent = 'Desenho Enviado! 🚀';
-
-        const p = document.createElement('p');
-        p.style.color = '#94a3b8';
-        p.style.fontSize = '1rem';
-        p.textContent = 'Aguardando os outros jogadores terminarem...';
-
-        card.appendChild(h2);
-        card.appendChild(p);
-        drawingScreen.appendChild(card);
+        enviarDesenhoAtual();
     });
+});
+
+// OUVINTE DO TEMPORIZADOR COM AUTO-SUBMIT
+socket.on('timer-tick', (timeLeft) => {
+    let timerEl = document.getElementById('game-timer');
+
+    if (!timerEl) {
+        timerEl = document.createElement('div');
+        timerEl.id = 'game-timer';
+        timerEl.style.position = 'fixed';
+        timerEl.style.top = '10px';
+        timerEl.style.right = '15px';
+        timerEl.style.fontWeight = 'bold';
+        timerEl.style.fontSize = '1rem';
+        timerEl.style.color = '#facc15';
+        timerEl.style.background = '#1e293b';
+        timerEl.style.padding = '6px 12px';
+        timerEl.style.borderRadius = '20px';
+        timerEl.style.border = '1px solid #38bdf8';
+        timerEl.style.zIndex = '9999';
+        timerEl.style.boxShadow = '0 4px 10px rgba(0,0,0,0.3)';
+        document.body.appendChild(timerEl);
+    }
+
+    timerEl.style.display = 'block';
+    timerEl.textContent = '⏱️ ' + timeLeft + 's';
+
+    if (timeLeft <= 10) {
+        timerEl.style.color = '#ef4444';
+        timerEl.style.borderColor = '#ef4444';
+    } else {
+        timerEl.style.color = '#facc15';
+        timerEl.style.borderColor = '#38bdf8';
+    }
+
+    // Auto-submit no último segundo se ainda não enviou
+    const drawingScreen = document.getElementById('drawing-screen');
+    const isDrawingActive = drawingScreen && drawingScreen.style.display !== 'none';
+
+    if (timeLeft <= 0 && isDrawingActive && !hasSubmittedCurrentRound) {
+        enviarDesenhoAtual();
+    }
+});
+
+// FASE DE VOTAÇÃO
+socket.on('start-voting-round', (data) => {
+    if (!hasJoined) return;
+    isGameStarted = true;
+    exibirTela('voting-screen');
+
+    const votingScreen = document.getElementById('voting-screen');
+    if (votingScreen) {
+        votingScreen.innerHTML = '';
+        renderVotingScreen(votingScreen, data, socket);
+    }
 });
 
 // FIM DE JOGO
@@ -319,6 +246,9 @@ socket.on('game-over', (leaderboard) => {
 
     isGameStarted = true;
     exibirTela('voting-screen');
+
+    const timerEl = document.getElementById('game-timer');
+    if (timerEl) timerEl.style.display = 'none';
 
     const votingScreen = document.getElementById('voting-screen');
     votingScreen.innerHTML = '';
@@ -353,7 +283,6 @@ socket.on('game-over', (leaderboard) => {
     card.appendChild(p1);
     card.appendChild(p2);
 
-    // Botão de retorno exclusivo do Anfitrião
     if (isHost) {
         const restartBtn = document.createElement('button');
         restartBtn.style.marginTop = '20px';
@@ -371,6 +300,9 @@ socket.on('game-over', (leaderboard) => {
 // RETORNO AO LOBBY
 socket.on('back-to-lobby', (players) => {
     isGameStarted = false;
+    const timerEl = document.getElementById('game-timer');
+    if (timerEl) timerEl.style.display = 'none';
+
     const me = players.find(p => p.id === socket.id);
 
     if (me) {
@@ -384,6 +316,6 @@ socket.on('back-to-lobby', (players) => {
         }
     } else {
         hasJoined = false;
-        exibirTela('login-screen'); // Manda quem estava aguardando de volta para o login para poder entrar no próximo jogo
+        exibirTela('login-screen');
     }
 });
