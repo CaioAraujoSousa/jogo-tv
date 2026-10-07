@@ -162,7 +162,53 @@ socket.on('start-round', (data) => {
     });
 });
 
-// FASE DE VOTAÇÃO
+// OUVINTE DO TEMPORIZADOR
+socket.on('timer-tick', (timeLeft) => {
+    let timerEl = document.getElementById('game-timer');
+
+    // Cria o elemento visual se ainda não existir na tela
+    if (!timerEl) {
+        timerEl = document.createElement('div');
+        timerEl.id = 'game-timer';
+        timerEl.style.position = 'fixed';
+        timerEl.style.top = '10px';
+        timerEl.style.right = '15px';
+        timerEl.style.fontWeight = 'bold';
+        timerEl.style.fontSize = '1rem';
+        timerEl.style.color = '#facc15';
+        timerEl.style.background = '#1e293b';
+        timerEl.style.padding = '6px 12px';
+        timerEl.style.borderRadius = '20px';
+        timerEl.style.border = '1px solid #38bdf8';
+        timerEl.style.zIndex = '9999';
+        timerEl.style.boxShadow = '0 4px 10px rgba(0,0,0,0.3)';
+        document.body.appendChild(timerEl);
+    }
+
+    timerEl.style.display = 'block';
+    timerEl.textContent = '⏱️ ' + timeLeft + 's';
+
+    // Fica vermelho nos últimos 10 segundos
+    if (timeLeft <= 10) {
+        timerEl.style.color = '#ef4444';
+        timerEl.style.borderColor = '#ef4444';
+    } else {
+        timerEl.style.color = '#facc15';
+        timerEl.style.borderColor = '#38bdf8';
+    }
+});
+
+// Oculta o timer ao retornar ao lobby
+socket.on('back-to-lobby', () => {
+    const timerEl = document.getElementById('game-timer');
+    if (timerEl) timerEl.style.display = 'none';
+});
+
+socket.on('game-over', () => {
+    const timerEl = document.getElementById('game-timer');
+    if (timerEl) timerEl.style.display = 'none';
+});
+
 // FASE DE VOTAÇÃO
 socket.on('start-voting-round', (data) => {
     if (!hasJoined) return;
