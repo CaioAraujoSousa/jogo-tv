@@ -7,6 +7,8 @@ let isHost = false;
 let isGameStarted = false;
 let hasJoined = false;
 let hasSubmittedCurrentRound = false;
+let latestPlayers = [];
+let isGameOver = false;
 
 // GERENCIADOR CENTRAL DE EXIBIÇÃO DE TELAS
 function exibirTela(idTelaDesejada) {
@@ -27,6 +29,66 @@ function exibirTela(idTelaDesejada) {
 
     if (telaAtiva) {
         telaAtiva.style.display = 'block';
+    }
+}
+
+function updateAbortMatchButton() {
+    const activePlayers = latestPlayers.filter(
+        player => !player.disconnected
+    );
+
+    const shouldShow =
+        isGameStarted &&
+        !isGameOver &&
+        isHost &&
+        activePlayers.length < 3;
+
+    let button = document.getElementById('abort-match-btn');
+
+    if (!shouldShow) {
+        if (button) button.remove();
+        return;
+    }
+
+    const drawingScreen = document.getElementById('drawing-screen');
+    const votingScreen = document.getElementById('voting-screen');
+
+    let parent = null;
+
+    if (
+        drawingScreen &&
+        drawingScreen.style.display !== 'none'
+    ) {
+        parent = drawingScreen;
+    } else if (
+        votingScreen &&
+        votingScreen.style.display !== 'none'
+    ) {
+        parent = votingScreen;
+    }
+
+    if (!parent) {
+        if (button) button.remove();
+        return;
+    }
+
+    if (!button) {
+        button = document.createElement('button');
+        button.id = 'abort-match-btn';
+        button.textContent = 'Encerrar partida e voltar ao Lobby 🔄';
+
+        button.style.marginTop = '20px';
+        button.style.background = '#22c55e';
+        button.style.width = '100%';
+        button.style.maxWidth = '460px';
+
+        button.addEventListener('click', () => {
+            socket.emit('return-to-lobby');
+        });
+    }
+
+    if (button.parentElement !== parent) {
+        parent.appendChild(button);
     }
 }
 
@@ -83,6 +145,7 @@ socket.on('error-message', (msg) => {
 // ATUALIZAÇÃO DO LOBBY & PROMOÇÃO DE ANFITRIÃO
 socket.on('update-lobby', (players) => {
     // Filtra apenas quem continua conectado
+    latestPlayers = players;
     const activePlayers = players.filter(p => !p.disconnected);
     const me = players.find(p => p.id === socket.id);
     hasJoined = !!me;
@@ -97,14 +160,24 @@ socket.on('update-lobby', (players) => {
 
     // É anfitrião se for o primeiro jogador CONECTADO da lista
     isHost = activePlayers.length > 0 && activePlayers[0].id === socket.id;
-
-    // Se estivermos na tela de Fim de Jogo e este celular se tornou o novo Anfitrião, exibe o botão
+    updateAbortMatchButton();
+    // Se o anfitrião mudar durante o pódio, adiciona o botão
+    // de retorno somente se ainda não existir.
     const votingScreen = document.getElementById('voting-screen');
-    const isVotingVisible = votingScreen && votingScreen.style.display !== 'none';
 
-    const gameOverCard = isVotingVisible ? votingScreen.querySelector('#game-over-card') : null;
+    const isVotingVisible =
+        votingScreen &&
+        votingScreen.style.display !== 'none';
 
-    if (gameOverCard && isHost && !gameOverCard.querySelector('#restart-btn-podium')) {
+    const gameOverCard = isVotingVisible
+        ? votingScreen.querySelector('#game-over-card')
+        : null;
+
+    if (
+        gameOverCard &&
+        isHost &&
+        !gameOverCard.querySelector('#restart-btn-podium')
+    ) {
         const restartBtn = document.createElement('button');
 
         restartBtn.id = 'restart-btn-podium';
@@ -113,11 +186,11 @@ socket.on('update-lobby', (players) => {
         restartBtn.textContent = 'Voltar ao Lobby 🔄';
 
         restartBtn.addEventListener('click', () => {
-        socket.emit('return-to-lobby');
-    });
+            socket.emit('return-to-lobby');
+        });
 
-    gameOverCard.appendChild(restartBtn);
-}
+        gameOverCard.appendChild(restartBtn);
+    }
 
 // Se restarem menos de 3 jogadores ativos durante a partida,
 // o anfitrião pode encerrá-la e voltar ao lobby.
@@ -202,7 +275,7 @@ function enviarDesenhoAtual() {
         p.style.color = '#94a3b8';
         p.style.fontSize = '1rem';
         p.textContent = 'Aguardando os outros jogadores terminarem...';
-
+        updateAbortMatchButton();
         card.appendChild(h2);
         card.appendChild(p);
         drawingScreen.appendChild(card);
@@ -270,6 +343,8 @@ socket.on('start-round', (data) => {
     drawingScreen.appendChild(toolbar);
 
     initCanvas(canvas, clearBtn, paletteBox, toolsBox);
+    isGameOver = false;
+    updateAbortMatchButton();
 
     submitBtn.addEventListener('click', () => {
         enviarDesenhoAtual();
@@ -322,20 +397,22 @@ socket.on('timer-tick', (timeLeft) => {
 socket.on('start-voting-round', (data) => {
     if (!hasJoined) return;
     isGameStarted = true;
+    isGameOver = false;
     exibirTela('voting-screen');
 
     const votingScreen = document.getElementById('voting-screen');
     if (votingScreen) {
         votingScreen.innerHTML = '';
         renderVotingScreen(votingScreen, data, socket);
+        updateAbortMatchButton();
     }
 });
 
 // FIM DE JOGO
 socket.on('game-over', (leaderboard) => {
     if (!hasJoined) return;
-
     isGameStarted = true;
+    isGameOver = true;
     exibirTela('voting-screen');
 
     const timerEl = document.getElementById('game-timer');
@@ -394,6 +471,8 @@ socket.on('game-over', (leaderboard) => {
 // RETORNO AO LOBBY
 socket.on('back-to-lobby', (players) => {
     isGameStarted = false;
+    latestPlayers = players;
+    isGameOver = false;
     const votingScreen = document.getElementById('voting-screen');
 
     if (votingScreen) {
@@ -426,4 +505,5 @@ socket.on('back-to-lobby', (players) => {
         hasJoined = false;
         exibirTela('login-screen');
     }
+    updateAbortMatchButton();
 });
