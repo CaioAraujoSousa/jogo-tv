@@ -141,19 +141,48 @@ io.on('connection', (socket) => {
     });
 
     socket.on('return-to-lobby', () => {
-        if (gameState.players.length === 0) return;
-        if (gameState.players[0].id !== socket.id) return;
+        const activePlayers = gameState.players.filter(
+            player => !player.disconnected
+        );
+
+        const activeHost = activePlayers[0];
+
+        // Não permite retornar se não houver anfitrião ativo
+        if (!activeHost) return;
+
+        // Somente o anfitrião atual pode voltar ao lobby
+        if (activeHost.id !== socket.id) {
+            socket.emit(
+                'error-message',
+                'Somente o anfitrião atual pode voltar ao lobby.'
+            );
+            return;
+        }
+
+        // Esse comando é permitido apenas depois do fim da partida
+        if (gameState.phase !== 'game-over') return;
 
         clearRoundTimer();
         isTransitioning = false;
+
         gameState.returnToLobby();
+
         io.emit('back-to-lobby', gameState.players);
         io.emit('update-lobby', gameState.players);
     });
 
     socket.on('disconnect', () => {
         console.log(`Dispositivo desconectado: ${socket.id}`);
-
+        console.log('[DEBUG DISCONNECT]', {
+            phase: gameState.phase,
+            currentRound: gameState.currentRound,
+            currentVotingRound: gameState.currentVotingRound,
+            isTransitioning,
+            players: gameState.players.map(player => ({
+                name: player.name,
+                disconnected: player.disconnected
+            }))
+        });
         if (gameState.isStarted) {
             if (typeof gameState.setDisconnected === 'function') {
                 gameState.setDisconnected(socket.id);
