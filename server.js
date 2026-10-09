@@ -98,7 +98,9 @@ io.on('connection', (socket) => {
 
     socket.on('submit-drawing', (imageData) => {
         const isPlayer = gameState.players.some(p => p.id === socket.id);
-        if (!isPlayer || isTransitioning) return;
+        if (!isPlayer ||isTransitioning || gameState.phase !== 'drawing') {
+            return;
+        }
 
         const submittedCount = gameState.submitDrawing(socket.id, imageData);
         io.emit('drawing-progress', { submitted: submittedCount, total: gameState.players.length });
@@ -109,17 +111,33 @@ io.on('connection', (socket) => {
     });
 
     socket.on('submit-votes', (data) => {
-        const isPlayer = gameState.players.some(p => p.id === socket.id);
-        if (!isPlayer || isTransitioning) return;
+    const isPlayer = gameState.players.some(
+        p => p.id === socket.id && !p.disconnected
+    );
 
-        const roundNum = data.round;
-        const votesArray = data.votes;
-        
-        gameState.submitVote(socket.id, roundNum, votesArray);
+    if (!isPlayer || isTransitioning || gameState.phase !== 'voting') {
+        return;
+    }
 
-        if (gameState.allVotesSubmitted(roundNum)) {
-            handleVotingCompletion(roundNum);
-        }
+    if (!data || !Array.isArray(data.votes)) {
+        socket.emit('error-message', 'Dados de votação inválidos.');
+        return;
+    }
+
+    const roundNum = data.round;
+
+    if (roundNum !== gameState.currentVotingRound) {
+        socket.emit('error-message', 'Esta votação não está mais ativa.');
+        return;
+    }
+
+    const votesArray = data.votes;
+
+    gameState.submitVote(socket.id, roundNum, votesArray);
+
+    if (gameState.allVotesSubmitted(roundNum)) {
+        handleVotingCompletion(roundNum);
+    }
     });
 
     socket.on('return-to-lobby', () => {
@@ -145,10 +163,9 @@ io.on('connection', (socket) => {
             io.emit('update-lobby', gameState.players);
 
             if (!isTransitioning) {
-                if (gameState.allDrawingsSubmitted()) {
+                if (gameState.phase === 'drawing' && gameState.allDrawingsSubmitted()) {
                     handleDrawingCompletion();
-                } else if (gameState.currentRound && gameState.allVotesSubmitted(gameState.currentRound)) {
-                    handleVotingCompletion(gameState.currentRound);
+                } else if (gameState.phase === 'voting' && gameState.allVotesSubmitted(gameState.currentVotingRound)){ handleVotingCompletion(gameState.currentVotingRound);
                 }
             }
             return;
@@ -160,7 +177,7 @@ io.on('connection', (socket) => {
 });
 
 function handleDrawingCompletion() {
-    if (isTransitioning) return;
+    if (isTransitioning || gameState.phase !== 'drawing') return;
     isTransitioning = true;
     clearRoundTimer();
 
@@ -188,7 +205,13 @@ function handleDrawingCompletion() {
 }
 
 function handleVotingCompletion(roundNum) {
-    if (isTransitioning) return;
+    if (
+    isTransitioning ||
+    gameState.phase !== 'voting' ||
+    roundNum !== gameState.currentVotingRound
+) {
+    return;
+}
     isTransitioning = true;
     clearRoundTimer();
 
@@ -206,18 +229,17 @@ function handleVotingCompletion(roundNum) {
         io.emit('start-voting-round', votingCards);
         startRoundTimer(30, () => handleVotingCompletion(roundNum + 1));
     } else if (roundNum === 6) {
-    const leaderboard = gameState.calculateFinalLeaderboard();
-    io.emit('game-over', leaderboard);
+        const leaderboard = gameState.calculateFinalLeaderboard();
+        gameState.phase = 'game-over';
+        io.emit('game-over', leaderboard);
 
-    // TEMPORIZADOR AUTOMÁTICO DO PÓDIO (45 segundos)
-    // Se ninguém clicar, o servidor volta a sala para o lobby sozinho
-    startRoundTimer(45, () => {
-        clearRoundTimer();
-        isTransitioning = false;
-        gameState.returnToLobby();
-        io.emit('back-to-lobby', gameState.players);
-        io.emit('update-lobby', gameState.players);
-    });
+        startRoundTimer(45, () => {
+            clearRoundTimer();
+            isTransitioning = false;
+            gameState.returnToLobby();
+            io.emit('back-to-lobby', gameState.players);
+            io.emit('update-lobby', gameState.players);
+        });
     }
 }
 

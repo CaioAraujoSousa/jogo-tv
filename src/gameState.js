@@ -23,6 +23,7 @@ const COLOR_PALETTE = [
 
 class GameState {
     constructor() {
+        this.phase = 'lobby';
         this.players = [];
         this.isStarted = false;
         this.currentRound = 0;
@@ -33,6 +34,7 @@ class GameState {
     }
 
     returnToLobby() {
+        this.phase = 'lobby';
         this.isStarted = false;
         this.currentRound = 0;
         this.currentVotingRound = 0;
@@ -49,6 +51,7 @@ class GameState {
     }
 
     reset() {
+        this.phase = 'lobby';
         this.players = [];
         this.isStarted = false;
         this.currentRound = 0;
@@ -86,6 +89,7 @@ class GameState {
     }
 
     startGame() {
+        this.phase = 'drawing';
         if (this.players.length < 3) return null;
 
         this.isStarted = true;
@@ -102,6 +106,7 @@ class GameState {
     }
 
     getCurrentRoundData() {
+        this.phase = 'drawing';
         return {
             round: this.currentRound,
             theme: this.matchThemes[this.currentRound - 1]
@@ -120,8 +125,12 @@ class GameState {
     allDrawingsSubmitted() {
         const roundDrawings = this.drawings[this.currentRound] || {};
         const activePlayers = this.players.filter(p => !p.disconnected);
+
         if (activePlayers.length === 0) return true;
-        return Object.keys(roundDrawings).length >= activePlayers.length;
+
+        return activePlayers.every(player =>
+        Object.prototype.hasOwnProperty.call(roundDrawings, player.id)
+    );
     }
 
     submitVote(playerId, roundNum, votesArray) {
@@ -135,11 +144,16 @@ class GameState {
     allVotesSubmitted(roundNum) {
         const roundVotes = this.votes[roundNum] || {};
         const activePlayers = this.players.filter(p => !p.disconnected);
+
         if (activePlayers.length === 0) return true;
-        return Object.keys(roundVotes).length >= activePlayers.length;
+
+        return activePlayers.every(player =>
+            Object.prototype.hasOwnProperty.call(roundVotes, player.id)
+        );
     }
 
     getVotingCards(roundNum) {
+        this.phase = 'voting';
         this.currentVotingRound = roundNum;
         const theme = this.matchThemes[roundNum - 1];
         const roundDrawings = this.drawings[roundNum] || {};
