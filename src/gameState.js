@@ -134,12 +134,141 @@ class GameState {
     }
 
     submitVote(playerId, roundNum, votesArray) {
-        if (!this.votes[roundNum]) {
-            this.votes[roundNum] = {};
-        }
-        this.votes[roundNum][playerId] = votesArray;
-        return Object.keys(this.votes[roundNum]).length;
+    if (this.phase !== 'voting') {
+        return {
+            ok: false,
+            message: 'Não há uma votação ativa no momento.'
+        };
     }
+
+    if (
+        !Number.isInteger(roundNum) ||
+        roundNum !== this.currentVotingRound
+    ) {
+        return {
+            ok: false,
+            message: 'Esta votação não está mais ativa.'
+        };
+    }
+
+    const player = this.players.find(
+        p => p.id === playerId && !p.disconnected
+    );
+
+    if (!player) {
+        return {
+            ok: false,
+            message: 'Jogador não encontrado ou desconectado.'
+        };
+    }
+
+    if (!Array.isArray(votesArray)) {
+        return {
+            ok: false,
+            message: 'Formato de votação inválido.'
+        };
+    }
+
+    const roundVotes = this.votes[roundNum] || {};
+
+    // Se o jogador já votou, só aceitamos uma repetição
+    // idêntica para permitir uma confirmação de rede repetida.
+    if (
+        Object.prototype.hasOwnProperty.call(
+            roundVotes,
+            playerId
+        )
+    ) {
+        const previousVotes = roundVotes[playerId];
+
+        const isIdentical =
+            previousVotes.length === votesArray.length &&
+            previousVotes.every(
+                (vote, index) => vote === votesArray[index]
+            );
+
+        if (isIdentical) {
+            return {
+                ok: true,
+                duplicate: true
+            };
+        }
+
+        return {
+            ok: false,
+            message: 'Você já confirmou seus votos nesta rodada.'
+        };
+    }
+
+    // Reconstrói o mapeamento oficial dos desenhos desta rodada.
+    const roundDrawings = this.drawings[roundNum] || {};
+
+    const cards = Object.keys(roundDrawings).map(
+        (artistId, index) => ({
+            number: index + 1,
+            artistId
+        })
+    );
+
+    const artistByNumber = new Map(
+        cards.map(card => [card.number, card.artistId])
+    );
+
+    const otherCardsCount = cards.filter(
+        card => card.artistId !== playerId
+    ).length;
+
+    const expectedVotes = Math.min(3, otherCardsCount);
+
+    if (votesArray.length !== expectedVotes) {
+        return {
+            ok: false,
+            message: `Você precisa selecionar ${expectedVotes} preferência(s).`
+        };
+    }
+
+    if (!votesArray.every(Number.isInteger)) {
+        return {
+            ok: false,
+            message: 'Os números dos desenhos são inválidos.'
+        };
+    }
+
+    if (new Set(votesArray).size !== votesArray.length) {
+        return {
+            ok: false,
+            message: 'Você não pode votar no mesmo desenho mais de uma vez.'
+        };
+    }
+
+    for (const vote of votesArray) {
+        if (!artistByNumber.has(vote)) {
+            return {
+                ok: false,
+                message: 'Um dos desenhos selecionados não existe.'
+            };
+        }
+
+        if (artistByNumber.get(vote) === playerId) {
+            return {
+                ok: false,
+                message: 'Você não pode votar no próprio desenho.'
+            };
+        }
+    }
+
+    if (!this.votes[roundNum]) {
+        this.votes[roundNum] = {};
+    }
+
+    // Copia a lista para não manter uma referência ao array do cliente.
+    this.votes[roundNum][playerId] = [...votesArray];
+
+    return {
+        ok: true,
+        duplicate: false
+    };
+}
 
     allVotesSubmitted(roundNum) {
         const roundVotes = this.votes[roundNum] || {};

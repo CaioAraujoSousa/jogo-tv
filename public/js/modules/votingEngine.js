@@ -1,16 +1,13 @@
 export function renderVotingScreen(container, data, socket) {
     container.innerHTML = '';
 
-    // --- COLI AQUI O BLOCO ABAIXO ---
     if (!data || !Array.isArray(data.cards)) {
         container.innerHTML = '«div class="card"»«h2»Aguardando votação... ⏳«/h2»«/div»';
         return;
     }
 
-    // Conta apenas desenhos que pertencem a OUTROS jogadores
     const otherCardsCount = data.cards.filter(c => c.artistId !== socket.id).length;
 
-    // Limita a no máximo 3 votos (1º, 2º e 3º) conforme a regra de pontuação
     const maxVotes = Math.min(3, otherCardsCount);
     let selectedVotes = [];
 
@@ -26,6 +23,13 @@ export function renderVotingScreen(container, data, socket) {
     subtitle.style.color = '#94a3b8';
     subtitle.style.fontSize = '0.9rem';
     subtitle.style.marginTop = '0';
+
+    const feedback = document.createElement('p');
+    feedback.className = 'vote-feedback';
+    feedback.setAttribute('role', 'alert');
+    feedback.style.color = '#f87171';
+    feedback.style.fontSize = '0.9rem';
+    feedback.style.margin = '8px 0';
 
     const grid = document.createElement('div');
     grid.className = 'vote-grid';
@@ -80,6 +84,7 @@ export function renderVotingScreen(container, data, socket) {
                         selectedVotes.push(card.number);
                     }
                 }
+                feedback.textContent = '';
                 updateUI();
             });
 
@@ -112,29 +117,53 @@ export function renderVotingScreen(container, data, socket) {
     }
 
     sendBtn.addEventListener('click', () => {
-        if (selectedVotes.length !== maxVotes && maxVotes > 0) return;
+    if (selectedVotes.length !== maxVotes && maxVotes > 0) {
+        return;
+    }
 
-        // Desativa o botão no clique para evitar lag e duplo envio
-        sendBtn.disabled = true;
-        sendBtn.style.opacity = '0.5';
-        sendBtn.textContent = 'Enviando votos... ⏳';
+    sendBtn.disabled = true;
+    sendBtn.style.opacity = '0.5';
+    sendBtn.textContent = 'Enviando votos... ⏳';
 
-        socket.emit('submit-votes', { round: data.round, votes: selectedVotes });
+    feedback.textContent = '';
 
-        cardDiv.innerHTML = '';
-        const doneTitle = document.createElement('h2');
-        doneTitle.textContent = 'Votos Enviados! 🎯';
+    socket.emit(
+        'submit-votes',
+        {
+            round: data.round,
+            votes: [...selectedVotes]
+        },
+        response => {
+            if (!response || !response.ok) {
+                feedback.textContent =
+                    response?.message ||
+                    'Não foi possível confirmar seus votos.';
 
-        const doneText = document.createElement('p');
-        doneText.style.color = '#94a3b8';
-        doneText.textContent = 'Aguardando os restantes jogadores votarem...';
+                // Restaura o botão de acordo com a seleção atual.
+                updateUI();
+                return;
+            }
 
-        cardDiv.appendChild(doneTitle);
-        cardDiv.appendChild(doneText);
-    });
+            // Só mostra confirmação depois da resposta do servidor.
+            cardDiv.innerHTML = '';
+
+            const doneTitle = document.createElement('h2');
+            doneTitle.textContent = 'Votos Enviados! 🎯';
+
+            const doneText = document.createElement('p');
+            doneText.style.color = '#94a3b8';
+            doneText.textContent =
+                'Aguardando os outros jogadores votarem...';
+
+            cardDiv.appendChild(doneTitle);
+            cardDiv.appendChild(doneText);
+        }
+    );
+});
 
     cardDiv.appendChild(title);
     cardDiv.appendChild(subtitle);
+    cardDiv.appendChild(feedback);
     cardDiv.appendChild(grid);
     cardDiv.appendChild(sendBtn);
 

@@ -111,35 +111,72 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('submit-votes', (data) => {
-    const isPlayer = gameState.players.some(
+    socket.on('submit-votes', (data, acknowledge) => {
+    const reply = result => {
+        if (typeof acknowledge === 'function') {
+            acknowledge(result);
+        } else if (!result.ok) {
+            socket.emit('error-message', result.message);
+        }
+    };
+
+    const player = gameState.players.find(
         p => p.id === socket.id && !p.disconnected
     );
 
-    if (!isPlayer || isTransitioning || gameState.phase !== 'voting') {
-        return;
+    if (!player) {
+        return reply({
+            ok: false,
+            message: 'Jogador não encontrado ou desconectado.'
+        });
+    }
+
+    if (
+        isTransitioning ||
+        gameState.phase !== 'voting'
+    ) {
+        return reply({
+            ok: false,
+            message: 'Não há uma votação ativa no momento.'
+        });
     }
 
     if (!data || !Array.isArray(data.votes)) {
-        socket.emit('error-message', 'Dados de votação inválidos.');
-        return;
+        return reply({
+            ok: false,
+            message: 'Dados de votação inválidos.'
+        });
     }
 
     const roundNum = data.round;
 
-    if (roundNum !== gameState.currentVotingRound) {
-        socket.emit('error-message', 'Esta votação não está mais ativa.');
-        return;
+    if (
+        !Number.isInteger(roundNum) ||
+        roundNum !== gameState.currentVotingRound
+    ) {
+        return reply({
+            ok: false,
+            message: 'Esta votação não está mais ativa.'
+        });
     }
 
-    const votesArray = data.votes;
+    const result = gameState.submitVote(
+        socket.id,
+        roundNum,
+        data.votes
+    );
 
-    gameState.submitVote(socket.id, roundNum, votesArray);
+    if (!result.ok) {
+        return reply(result);
+    }
+
+    // Confirma ao cliente antes de iniciar a próxima fase.
+    reply({ ok: true });
 
     if (gameState.allVotesSubmitted(roundNum)) {
         handleVotingCompletion(roundNum);
     }
-    });
+});
 
     socket.on('return-to-lobby', () => {
     const activePlayers = gameState.players.filter(
