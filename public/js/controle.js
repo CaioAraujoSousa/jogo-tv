@@ -201,7 +201,7 @@ socket.on('start-round', (data) => {
     drawingScreen.appendChild(canvas);
     drawingScreen.appendChild(toolbar);
 
-    initCanvas(canvas, clearBtn, submitBtn, socket, paletteBox, toolsBox);
+    initCanvas(canvas, clearBtn, paletteBox, toolsBox);
 
     submitBtn.addEventListener('click', () => {
         enviarDesenhoAtual();

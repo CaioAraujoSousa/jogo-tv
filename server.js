@@ -83,7 +83,7 @@ io.on('connection', (socket) => {
     });
 
     socket.on('start-game', () => {
-        if (gameState.players.length < 2) {
+        if (gameState.players.length < 3) {
             socket.emit('error-message', 'É necessário pelo menos 2 jogadores para iniciar a partida!');
             return;
         }

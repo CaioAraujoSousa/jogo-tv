@@ -1,4 +1,4 @@
-export function initCanvas(canvasElement, clearBtn, submitBtn, socket, paletteContainer, toolContainer) {
+export function initCanvas(canvasElement, clearBtn, paletteContainer, toolContainer) {
     const ctx = canvasElement.getContext('2d');
     let painting = false;
 
@@ -80,17 +80,6 @@ export function initCanvas(canvasElement, clearBtn, submitBtn, socket, paletteCo
         clearBtn.addEventListener('click', () => {
             ctx.fillStyle = '#ffffff';
             ctx.fillRect(0, 0, canvasElement.width, canvasElement.height);
-        });
-    }
-
-    // Botão Enviar
-    if (submitBtn && socket) {
-        submitBtn.addEventListener('click', () => {
-            submitBtn.disabled = true;
-            submitBtn.style.opacity = '0.5';
-            // Otimiza a imagem para envio leve e instantâneo
-            const imageData = canvasElement.toDataURL('image/jpeg', 0.7);
-            socket.emit('submit-drawing', imageData);
         });
     }
 

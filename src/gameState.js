@@ -86,7 +86,7 @@ class GameState {
     }
 
     startGame() {
-        if (this.players.length < 2) return null;
+        if (this.players.length < 3) return null;
 
         this.isStarted = true;
         this.currentRound = 1;
