@@ -174,3 +174,10 @@ canvas {
     font-weight: bold !important;
     box-shadow: 0 0 10px rgba(255, 255, 255, 0.4);
 }
+
+.waiting-error-msg {
+    color: #f87171;
+    margin-top: 12px;
+    font-size: 0.95rem;
+    font-weight: 600;
+}

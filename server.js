@@ -83,10 +83,11 @@ io.on('connection', (socket) => {
     });
 
     socket.on('start-game', () => {
-        if (gameState.players.length < 3) {
-            socket.emit('error-message', 'É necessário pelo menos 2 jogadores para iniciar a partida!');
+        if (gameState.players.length < 3) { 
+            socket.emit('error-message','É necessário pelo menos 3 jogadores para iniciar a partida!');
             return;
         }
+        
         if (gameState.players[0].id !== socket.id) return;
 
         const roundData = gameState.startGame();
@@ -141,34 +142,47 @@ io.on('connection', (socket) => {
     });
 
     socket.on('return-to-lobby', () => {
-        const activePlayers = gameState.players.filter(
-            player => !player.disconnected
+    const activePlayers = gameState.players.filter(
+        player => !player.disconnected
+    );
+
+    const activeHost = activePlayers[0];
+
+    if (!activeHost) return;
+
+    // Somente o anfitrião ativo pode executar a ação.
+    if (activeHost.id !== socket.id) {
+        socket.emit(
+            'error-message',
+            'Somente o anfitrião atual pode executar esta ação.'
         );
+        return;
+    }
 
-        const activeHost = activePlayers[0];
+    const isPodium = gameState.phase === 'game-over';
 
-        // Não permite retornar se não houver anfitrião ativo
-        if (!activeHost) return;
+    const canAbortUnderstaffedMatch =
+        gameState.isStarted &&
+        gameState.phase !== 'lobby' &&
+        activePlayers.length < 3;
 
-        // Somente o anfitrião atual pode voltar ao lobby
-        if (activeHost.id !== socket.id) {
-            socket.emit(
-                'error-message',
-                'Somente o anfitrião atual pode voltar ao lobby.'
-            );
-            return;
-        }
+    // Permite retornar ao lobby no pódio ou abortar uma
+    // partida que ficou com menos de 3 jogadores ativos.
+    if (!isPodium && !canAbortUnderstaffedMatch) {
+        socket.emit(
+            'error-message',
+            'Esta ação não está disponível nesta fase.'
+        );
+        return;
+    }
 
-        // Esse comando é permitido apenas depois do fim da partida
-        if (gameState.phase !== 'game-over') return;
+    clearRoundTimer();
+    isTransitioning = false;
 
-        clearRoundTimer();
-        isTransitioning = false;
+    gameState.returnToLobby();
 
-        gameState.returnToLobby();
-
-        io.emit('back-to-lobby', gameState.players);
-        io.emit('update-lobby', gameState.players);
+    io.emit('back-to-lobby', gameState.players);
+    io.emit('update-lobby', gameState.players);
     });
 
     socket.on('disconnect', () => {

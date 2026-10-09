@@ -50,7 +50,34 @@ document.getElementById('join-btn').addEventListener('click', () => {
 });
 
 socket.on('error-message', (msg) => {
-    document.getElementById('error-msg').innerText = msg;
+    const loginScreen = document.getElementById('login-screen');
+    const waitingScreen = document.getElementById('waiting-screen');
+
+    const isLoginVisible =
+        loginScreen && loginScreen.style.display !== 'none';
+
+    const isWaitingVisible =
+        waitingScreen && waitingScreen.style.display !== 'none';
+
+    if (isLoginVisible) {
+        document.getElementById('error-msg').textContent = msg;
+        return;
+    }
+
+    if (isWaitingVisible) {
+        const waitingError = document.getElementById('waiting-error-msg');
+        const startBtn = document.getElementById('start-btn-mobile');
+
+        if (waitingError) {
+            waitingError.textContent = msg;
+            waitingError.hidden = false;
+        }
+
+        if (startBtn) {
+            startBtn.disabled = false;
+            startBtn.textContent = 'Iniciar Partida';
+        }
+    }
 });
 
 // ATUALIZAÇÃO DO LOBBY & PROMOÇÃO DE ANFITRIÃO
@@ -59,25 +86,66 @@ socket.on('update-lobby', (players) => {
     const activePlayers = players.filter(p => !p.disconnected);
     const me = players.find(p => p.id === socket.id);
     hasJoined = !!me;
+    const waitingError = document.getElementById('waiting-error-msg');
 
+    if (waitingError) {
+        waitingError.textContent = '';
+        waitingError.hidden = true;
+    }
+    
     if (!me) return;
 
     // É anfitrião se for o primeiro jogador CONECTADO da lista
     isHost = activePlayers.length > 0 && activePlayers[0].id === socket.id;
 
     // Se estivermos na tela de Fim de Jogo e este celular se tornou o novo Anfitrião, exibe o botão
-    const gameOverCard = document.querySelector('#voting-screen .card');
-    if (gameOverCard && isHost && !document.getElementById('restart-btn-podium')) {
+    const votingScreen = document.getElementById('voting-screen');
+    const isVotingVisible = votingScreen && votingScreen.style.display !== 'none';
+
+    const gameOverCard = isVotingVisible ? votingScreen.querySelector('#game-over-card') : null;
+
+    if (gameOverCard && isHost && !gameOverCard.querySelector('#restart-btn-podium')) {
         const restartBtn = document.createElement('button');
+
         restartBtn.id = 'restart-btn-podium';
         restartBtn.style.marginTop = '20px';
         restartBtn.style.background = '#22c55e';
         restartBtn.textContent = 'Voltar ao Lobby 🔄';
+
         restartBtn.addEventListener('click', () => {
-            socket.emit('return-to-lobby');
-        });
-        gameOverCard.appendChild(restartBtn);
-    }
+        socket.emit('return-to-lobby');
+    });
+
+    gameOverCard.appendChild(restartBtn);
+}
+
+// Se restarem menos de 3 jogadores ativos durante a partida,
+// o anfitrião pode encerrá-la e voltar ao lobby.
+const votingCard = isVotingVisible
+    ? votingScreen.querySelector('.card')
+    : null;
+
+if (
+    !gameOverCard &&
+    isGameStarted &&
+    isHost &&
+    activePlayers.length < 3 &&
+    votingCard &&
+    !votingCard.querySelector('#abort-match-btn')
+) {
+    const abortBtn = document.createElement('button');
+
+    abortBtn.id = 'abort-match-btn';
+    abortBtn.style.marginTop = '20px';
+    abortBtn.style.background = '#22c55e';
+    abortBtn.textContent = 'Encerrar partida e voltar ao Lobby 🔄';
+
+    abortBtn.addEventListener('click', () => {
+        socket.emit('return-to-lobby');
+    });
+
+    votingCard.appendChild(abortBtn);
+}
 
     if (isGameStarted) return;
 
@@ -280,6 +348,7 @@ socket.on('game-over', (leaderboard) => {
     const myRank = leaderboard.findIndex(p => p.id === socket.id) + 1;
 
     const card = document.createElement('div');
+    card.id = 'game-over-card';
     card.className = 'card';
     card.style.marginTop = '40px';
 
@@ -308,6 +377,7 @@ socket.on('game-over', (leaderboard) => {
 
     if (isHost) {
         const restartBtn = document.createElement('button');
+        restartBtn.id = 'restart-btn-podium';
         restartBtn.style.marginTop = '20px';
         restartBtn.style.background = '#22c55e';
         restartBtn.textContent = 'Voltar ao Lobby 🔄';
@@ -324,6 +394,11 @@ socket.on('game-over', (leaderboard) => {
 // RETORNO AO LOBBY
 socket.on('back-to-lobby', (players) => {
     isGameStarted = false;
+    const votingScreen = document.getElementById('voting-screen');
+
+    if (votingScreen) {
+        votingScreen.innerHTML = '';
+    }
     const timerEl = document.getElementById('game-timer');
     if (timerEl) timerEl.style.display = 'none';
 
