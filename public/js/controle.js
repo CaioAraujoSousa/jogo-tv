@@ -192,34 +192,6 @@ socket.on('update-lobby', (players) => {
         gameOverCard.appendChild(restartBtn);
     }
 
-// Se restarem menos de 3 jogadores ativos durante a partida,
-// o anfitrião pode encerrá-la e voltar ao lobby.
-const votingCard = isVotingVisible
-    ? votingScreen.querySelector('.card')
-    : null;
-
-if (
-    !gameOverCard &&
-    isGameStarted &&
-    isHost &&
-    activePlayers.length < 3 &&
-    votingCard &&
-    !votingCard.querySelector('#abort-match-btn')
-) {
-    const abortBtn = document.createElement('button');
-
-    abortBtn.id = 'abort-match-btn';
-    abortBtn.style.marginTop = '20px';
-    abortBtn.style.background = '#22c55e';
-    abortBtn.textContent = 'Encerrar partida e voltar ao Lobby 🔄';
-
-    abortBtn.addEventListener('click', () => {
-        socket.emit('return-to-lobby');
-    });
-
-    votingCard.appendChild(abortBtn);
-}
-
     if (isGameStarted) return;
 
     exibirTela('waiting-screen');
