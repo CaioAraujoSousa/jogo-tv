@@ -9,6 +9,7 @@ let hasJoined = false;
 let hasSubmittedCurrentRound = false;
 let latestPlayers = [];
 let isGameOver = false;
+let currentDrawingRound = null;
 
 // GERENCIADOR CENTRAL DE EXIBIÇÃO DE TELAS
 function exibirTela(idTelaDesejada) {
@@ -225,38 +226,88 @@ document.getElementById('start-btn-mobile').addEventListener('click', (e) => {
 // FUNÇÃO CENTRALIZADA DE ENVIO (MANUAL E AUTOMÁTICA)
 function enviarDesenhoAtual() {
     if (hasSubmittedCurrentRound) return;
-    hasSubmittedCurrentRound = true;
 
     const canvas = document.getElementById('paintCanvas');
-    if (canvas) {
-        const imageData = canvas.toDataURL('image/jpeg', 0.5);
-        socket.emit('submit-drawing', imageData);
-    }
-
     const drawingScreen = document.getElementById('drawing-screen');
-    if (drawingScreen) {
-        drawingScreen.innerHTML = '';
-        const card = document.createElement('div');
-        card.className = 'card';
-        card.style.marginTop = '50px';
+    const submitBtn = document.getElementById('submit-btn');
 
-        const h2 = document.createElement('h2');
-        h2.textContent = 'Desenho Enviado! 🚀';
-
-        const p = document.createElement('p');
-        p.style.color = '#94a3b8';
-        p.style.fontSize = '1rem';
-        p.textContent = 'Aguardando os outros jogadores terminarem...';
-        updateAbortMatchButton();
-        card.appendChild(h2);
-        card.appendChild(p);
-        drawingScreen.appendChild(card);
+    if (!canvas || currentDrawingRound === null) {
+        return;
     }
+
+    hasSubmittedCurrentRound = true;
+
+    const imageData = canvas.toDataURL('image/jpeg', 0.5);
+
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Enviando... ⏳';
+    }
+
+    socket.emit(
+        'submit-drawing',
+        {
+            round: currentDrawingRound,
+            imageData
+        },
+        response => {
+            if (!response || !response.ok) {
+                hasSubmittedCurrentRound = false;
+
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Enviar Desenho';
+                }
+
+                let errorEl = drawingScreen.querySelector(
+                    '.draw-submit-error'
+                );
+
+                if (!errorEl) {
+                    errorEl = document.createElement('p');
+                    errorEl.className = 'draw-submit-error';
+                    errorEl.style.color = '#f87171';
+                    errorEl.style.fontSize = '0.9rem';
+
+                    drawingScreen.appendChild(errorEl);
+                }
+
+                errorEl.textContent =
+                    response?.message ||
+                    'Não foi possível enviar o desenho. Tente novamente.';
+
+                return;
+            }
+
+            // O servidor confirmou o recebimento.
+            drawingScreen.innerHTML = '';
+
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.style.marginTop = '50px';
+
+            const h2 = document.createElement('h2');
+            h2.textContent = 'Desenho Enviado! 🚀';
+
+            const p = document.createElement('p');
+            p.style.color = '#94a3b8';
+            p.style.fontSize = '1rem';
+            p.textContent =
+                'Aguardando os outros jogadores terminarem...';
+
+            card.appendChild(h2);
+            card.appendChild(p);
+            drawingScreen.appendChild(card);
+
+            updateAbortMatchButton();
+        }
+    );
 }
 
 // FASE DE DESENHO (OUVINTE ÚNICO)
 socket.on('start-round', (data) => {
     if (!hasJoined) return;
+    currentDrawingRound = data.round;
     isGameStarted = true;
     hasSubmittedCurrentRound = false; // Reseta a trava da nova rodada
     exibirTela('drawing-screen');

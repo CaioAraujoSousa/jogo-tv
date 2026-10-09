@@ -113,13 +113,72 @@ class GameState {
         };
     }
 
-    submitDrawing(playerId, imageData) {
-        const round = this.currentRound;
-        if (!this.drawings[round]) {
-            this.drawings[round] = {};
+    submitDrawing(playerId, roundNum, imageData) {
+        if (this.phase !== 'drawing') {
+            return {
+                ok: false,
+                message: 'Não há uma rodada de desenho ativa.'
+            };
         }
-        this.drawings[round][playerId] = imageData;
-        return Object.keys(this.drawings[round]).length;
+
+        if (
+            !Number.isInteger(roundNum) ||
+            roundNum !== this.currentRound
+        ) {
+            return {
+                ok: false,
+                message: 'Esta rodada de desenho não está mais ativa.'
+            };
+        }
+
+        const player = this.players.find(
+            p => p.id === playerId && !p.disconnected
+        );
+
+        if (!player) {
+            return {
+                ok: false,
+                message: 'Jogador não encontrado ou desconectado.'
+            };
+        }
+
+        if (
+            typeof imageData !== 'string' ||
+            !imageData.startsWith('data:image/jpeg;base64,') ||
+            imageData.length > 900_000
+        ) {
+            return {
+                ok: false,
+                message: 'Imagem inválida ou grande demais.'
+            };
+        }
+
+        const roundDrawings = this.drawings[roundNum] || {};
+
+        if (
+            Object.prototype.hasOwnProperty.call(
+                roundDrawings,
+                playerId
+            )
+        ) {
+            return {
+                ok: false,
+                message: 'Você já enviou seu desenho nesta rodada.'
+            };
+        }
+
+        if (!this.drawings[roundNum]) {
+            this.drawings[roundNum] = {};
+        }
+
+        this.drawings[roundNum][playerId] = imageData;
+
+        return {
+            ok: true,
+            submittedCount: Object.keys(
+                this.drawings[roundNum]
+            ).length
+        };
     }
 
     allDrawingsSubmitted() {

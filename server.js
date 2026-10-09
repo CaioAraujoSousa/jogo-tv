@@ -97,14 +97,64 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('submit-drawing', (imageData) => {
-        const isPlayer = gameState.players.some(p => p.id === socket.id);
-        if (!isPlayer ||isTransitioning || gameState.phase !== 'drawing') {
-            return;
+    socket.on('submit-drawing', (data, acknowledge) => {
+        const reply = result => {
+            if (typeof acknowledge === 'function') {
+                acknowledge(result);
+            } else if (!result.ok) {
+                socket.emit('error-message', result.message);
+            }
+        };
+
+        const player = gameState.players.find(
+            p => p.id === socket.id && !p.disconnected
+        );
+
+        if (!player) {
+            return reply({
+                ok: false,
+                message: 'Jogador não encontrado ou desconectado.'
+            });
         }
 
-        const submittedCount = gameState.submitDrawing(socket.id, imageData);
-        io.emit('drawing-progress', { submitted: submittedCount, total: gameState.players.length });
+        if (
+            isTransitioning ||
+            gameState.phase !== 'drawing'
+        ) {
+            return reply({
+                ok: false,
+                message: 'Não há uma rodada de desenho ativa.'
+            });
+        }
+
+        if (!data || typeof data !== 'object') {
+            return reply({
+                ok: false,
+                message: 'Dados do desenho inválidos.'
+            });
+        }
+
+        const result = gameState.submitDrawing(
+            socket.id,
+            data.round,
+            data.imageData
+        );
+
+        if (!result.ok) {
+            return reply(result);
+        }
+
+        const activePlayers = gameState.players.filter(
+            p => !p.disconnected
+        );
+
+        io.emit('drawing-progress', {
+            submitted: result.submittedCount,
+            total: activePlayers.length
+        });
+
+        // Confirma o recebimento antes de processar a transição.
+        reply({ ok: true });
 
         if (gameState.allDrawingsSubmitted()) {
             handleDrawingCompletion();
