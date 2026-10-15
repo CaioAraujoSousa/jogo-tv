@@ -13,12 +13,27 @@ const io = new Server(server, {
 
 app.use(express.static('public'));
 
-app.get('/reset', (req, res) => {
+app.post('/reset', (req, res) => {
+    const expectedToken = process.env.RESET_TOKEN;
+    const providedToken = req.get('x-reset-token');
+
+    // Sem uma chave configurada, o reset fica indisponível.
+    if (!expectedToken || providedToken !== expectedToken) {
+        return res.status(404).send('Não encontrado.');
+    }
+
     clearRoundTimer();
     isTransitioning = false;
+
     gameState.reset();
+
+    // Notifica todos os clientes para voltarem às telas iniciais.
+    io.emit('back-to-lobby', []);
     io.emit('update-lobby', []);
-    res.send('<h1>Sala resetada com sucesso! Volte ao jogo.</h1>');
+
+    return res.send(
+        '<h1>Sala resetada com sucesso. Todos podem entrar novamente.</h1>'
+    );
 });
 
 // --- CONTROLE DE TEMPORIZADOR E TRAVAS DE ESTADO ---
@@ -83,18 +98,50 @@ io.on('connection', (socket) => {
     });
 
     socket.on('start-game', () => {
-        if (gameState.players.length < 3) { 
-            socket.emit('error-message','É necessário pelo menos 3 jogadores para iniciar a partida!');
-            return;
-        }
-        
-        if (gameState.players[0].id !== socket.id) return;
+    // Impede reiniciar ou iniciar outra partida fora do lobby.
+    if (gameState.phase !== 'lobby' || gameState.isStarted) {
+        socket.emit(
+            'error-message',
+            'A partida já começou ou não pode ser iniciada agora.'
+        );
+        return;
+    }
 
-        const roundData = gameState.startGame();
-        if (roundData) {
-            io.emit('start-round', roundData);
-            startRoundTimer(60, () => handleDrawingCompletion());
-        }
+    const activePlayers = gameState.players.filter(
+        player => !player.disconnected
+    );
+
+    if (activePlayers.length < 3) {
+        socket.emit(
+            'error-message',
+            'É necessário pelo menos 3 jogadores para iniciar a partida!'
+        );
+        return;
+    }
+
+    // Usa o primeiro jogador ativo como anfitrião.
+    const activeHost = activePlayers[0];
+
+    if (!activeHost || activeHost.id !== socket.id) {
+        socket.emit(
+            'error-message',
+            'Somente o anfitrião atual pode iniciar a partida.'
+        );
+        return;
+    }
+
+    const roundData = gameState.startGame();
+
+    if (!roundData || !gameState.isStarted) {
+        socket.emit(
+            'error-message',
+            'Não foi possível iniciar a partida. Tente novamente.'
+        );
+        return;
+    }
+
+    io.emit('start-round', roundData);
+    startRoundTimer(60, () => handleDrawingCompletion());
     });
 
     socket.on('submit-drawing', (data, acknowledge) => {
