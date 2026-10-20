@@ -1,8 +1,8 @@
-import { initCanvas } from './modules/canvasEngine.js?v=3';
-import { renderVotingScreen } from './modules/votingEngine.js?v=4';
+import { initCanvas } from "./modules/canvasEngine.js?v=3";
+import { renderVotingScreen } from "./modules/votingEngine.js?v=4";
 
 const socket = io();
-let selectedAvatar = '🦊';
+let selectedAvatar = "🦊";
 let isHost = false;
 let isGameStarted = false;
 let hasJoined = false;
@@ -13,520 +13,520 @@ let currentDrawingRound = null;
 
 // GERENCIADOR CENTRAL DE EXIBIÇÃO DE TELAS
 function exibirTela(idTelaDesejada) {
-    const telas = ['login-screen', 'waiting-screen', 'drawing-screen', 'voting-screen'];
-    
-    telas.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.style.display = 'none';
-    });
+  const telas = [
+    "login-screen",
+    "waiting-screen",
+    "drawing-screen",
+    "voting-screen",
+  ];
 
-    let telaAtiva = document.getElementById(idTelaDesejada);
-    
-    if (!telaAtiva && idTelaDesejada === 'voting-screen') {
-        telaAtiva = document.createElement('div');
-        telaAtiva.id = 'voting-screen';
-        document.body.appendChild(telaAtiva);
-    }
+  telas.forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = "none";
+  });
 
-    if (telaAtiva) {
-        telaAtiva.style.display = 'block';
-    }
+  let telaAtiva = document.getElementById(idTelaDesejada);
+
+  if (!telaAtiva && idTelaDesejada === "voting-screen") {
+    telaAtiva = document.createElement("div");
+    telaAtiva.id = "voting-screen";
+    document.body.appendChild(telaAtiva);
+  }
+
+  if (telaAtiva) {
+    telaAtiva.style.display = "block";
+  }
 }
 
 function updateAbortMatchButton() {
-    const activePlayers = latestPlayers.filter(
-        player => !player.disconnected
-    );
+  const activePlayers = latestPlayers.filter((player) => !player.disconnected);
 
-    const shouldShow =
-        isGameStarted &&
-        !isGameOver &&
-        isHost &&
-        activePlayers.length < 2;
+  const shouldShow =
+    isGameStarted && !isGameOver && isHost && activePlayers.length < 2;
 
-    let button = document.getElementById('abort-match-btn');
+  let button = document.getElementById("abort-match-btn");
 
-    if (!shouldShow) {
-        if (button) button.remove();
-        return;
-    }
+  if (!shouldShow) {
+    if (button) button.remove();
+    return;
+  }
 
-    const drawingScreen = document.getElementById('drawing-screen');
-    const votingScreen = document.getElementById('voting-screen');
+  const drawingScreen = document.getElementById("drawing-screen");
+  const votingScreen = document.getElementById("voting-screen");
 
-    let parent = null;
+  let parent = null;
 
-    if (
-        drawingScreen &&
-        drawingScreen.style.display !== 'none'
-    ) {
-        parent = drawingScreen;
-    } else if (
-        votingScreen &&
-        votingScreen.style.display !== 'none'
-    ) {
-        parent = votingScreen;
-    }
+  if (drawingScreen && drawingScreen.style.display !== "none") {
+    parent = drawingScreen;
+  } else if (votingScreen && votingScreen.style.display !== "none") {
+    parent = votingScreen;
+  }
 
-    if (!parent) {
-        if (button) button.remove();
-        return;
-    }
+  if (!parent) {
+    if (button) button.remove();
+    return;
+  }
 
-    if (!button) {
-        button = document.createElement('button');
-        button.id = 'abort-match-btn';
-        button.textContent = 'Encerrar partida e voltar ao Lobby 🔄';
+  if (!button) {
+    button = document.createElement("button");
+    button.id = "abort-match-btn";
+    button.textContent = "Encerrar partida e voltar ao Lobby 🔄";
 
-        button.style.marginTop = '20px';
-        button.style.background = '#22c55e';
-        button.style.width = '100%';
-        button.style.maxWidth = '460px';
+    button.style.marginTop = "20px";
+    button.style.background = "#22c55e";
+    button.style.width = "100%";
+    button.style.maxWidth = "460px";
 
-        button.addEventListener('click', () => {
-            socket.emit('return-to-lobby');
-        });
-    }
+    button.addEventListener("click", () => {
+      socket.emit("return-to-lobby");
+    });
+  }
 
-    if (button.parentElement !== parent) {
-        parent.appendChild(button);
-    }
+  if (button.parentElement !== parent) {
+    parent.appendChild(button);
+  }
 }
 
 // SELEÇÃO DE AVATAR
-document.querySelectorAll('.avatar-option').forEach(item => {
-    item.addEventListener('click', (e) => {
-        document.querySelectorAll('.avatar-option').forEach(a => a.classList.remove('selected'));
-        e.target.classList.add('selected');
-        selectedAvatar = e.target.getAttribute('data-avatar');
-    });
+document.querySelectorAll(".avatar-option").forEach((item) => {
+  item.addEventListener("click", (e) => {
+    document
+      .querySelectorAll(".avatar-option")
+      .forEach((a) => a.classList.remove("selected"));
+    e.target.classList.add("selected");
+    selectedAvatar = e.target.getAttribute("data-avatar");
+  });
 });
 
 // ENTRAR NO JOGO
-document.getElementById('join-btn').addEventListener('click', () => {
-    const name = document.getElementById('nickname').value.trim();
-    if (!name) {
-        document.getElementById('error-msg').innerText = 'Por favor, digite um apelido!';
-        return;
-    }
-    socket.emit('join-game', { name, avatar: selectedAvatar });
+document.getElementById("join-btn").addEventListener("click", () => {
+  const name = document.getElementById("nickname").value.trim();
+  if (!name) {
+    document.getElementById("error-msg").innerText =
+      "Por favor, digite um apelido!";
+    return;
+  }
+  socket.emit("join-game", { name, avatar: selectedAvatar });
 });
 
-socket.on('error-message', (msg) => {
-    const loginScreen = document.getElementById('login-screen');
-    const waitingScreen = document.getElementById('waiting-screen');
+socket.on("error-message", (msg) => {
+  const loginScreen = document.getElementById("login-screen");
+  const waitingScreen = document.getElementById("waiting-screen");
 
-    const isLoginVisible =
-        loginScreen && loginScreen.style.display !== 'none';
+  const isLoginVisible = loginScreen && loginScreen.style.display !== "none";
 
-    const isWaitingVisible =
-        waitingScreen && waitingScreen.style.display !== 'none';
+  const isWaitingVisible =
+    waitingScreen && waitingScreen.style.display !== "none";
 
-    if (isLoginVisible) {
-        document.getElementById('error-msg').textContent = msg;
-        return;
+  if (isLoginVisible) {
+    document.getElementById("error-msg").textContent = msg;
+    return;
+  }
+
+  if (isWaitingVisible) {
+    const waitingError = document.getElementById("waiting-error-msg");
+    const startBtn = document.getElementById("start-btn-mobile");
+
+    if (waitingError) {
+      waitingError.textContent = msg;
+      waitingError.hidden = false;
     }
 
-    if (isWaitingVisible) {
-        const waitingError = document.getElementById('waiting-error-msg');
-        const startBtn = document.getElementById('start-btn-mobile');
-
-        if (waitingError) {
-            waitingError.textContent = msg;
-            waitingError.hidden = false;
-        }
-
-        if (startBtn) {
-            startBtn.disabled = false;
-            startBtn.textContent = 'Iniciar Partida';
-        }
+    if (startBtn) {
+      startBtn.disabled = false;
+      startBtn.textContent = "Iniciar Partida";
     }
+  }
 });
 
 // ATUALIZAÇÃO DO LOBBY & PROMOÇÃO DE ANFITRIÃO
-socket.on('update-lobby', (players) => {
-    // Filtra apenas quem continua conectado
-    latestPlayers = players;
-    const activePlayers = players.filter(p => !p.disconnected);
-    const me = players.find(p => p.id === socket.id);
-    hasJoined = !!me;
-    const waitingError = document.getElementById('waiting-error-msg');
+socket.on("update-lobby", (players) => {
+  // Filtra apenas quem continua conectado
+  latestPlayers = players;
+  const activePlayers = players.filter((p) => !p.disconnected);
+  const me = players.find((p) => p.id === socket.id);
+  hasJoined = !!me;
+  const waitingError = document.getElementById("waiting-error-msg");
 
-    if (waitingError) {
-        waitingError.textContent = '';
-        waitingError.hidden = true;
+  if (waitingError) {
+    waitingError.textContent = "";
+    waitingError.hidden = true;
+  }
+
+  if (!me) return;
+
+  // É anfitrião se for o primeiro jogador CONECTADO da lista
+  isHost = activePlayers.length > 0 && activePlayers[0].id === socket.id;
+  updateAbortMatchButton();
+  // Se o anfitrião mudar durante o pódio, adiciona o botão
+  // de retorno somente se ainda não existir.
+  const votingScreen = document.getElementById("voting-screen");
+
+  const isVotingVisible = votingScreen && votingScreen.style.display !== "none";
+
+  const gameOverCard = isVotingVisible
+    ? votingScreen.querySelector("#game-over-card")
+    : null;
+
+  if (
+    gameOverCard &&
+    isHost &&
+    !gameOverCard.querySelector("#restart-btn-podium")
+  ) {
+    const restartBtn = document.createElement("button");
+
+    restartBtn.id = "restart-btn-podium";
+    restartBtn.style.marginTop = "20px";
+    restartBtn.style.background = "#22c55e";
+    restartBtn.textContent = "Voltar ao Lobby 🔄";
+
+    restartBtn.addEventListener("click", () => {
+      socket.emit("return-to-lobby");
+    });
+
+    gameOverCard.appendChild(restartBtn);
+  }
+
+  if (isGameStarted) return;
+
+  exibirTela("waiting-screen");
+
+  document.getElementById("user-display").innerText = me.avatar;
+  document.getElementById("welcome-name").innerText = me.name;
+
+  if (isHost) {
+    document.getElementById("host-controls").style.display = "block";
+    document.getElementById("waiting-msg").style.display = "none";
+
+    const startBtn = document.getElementById("start-btn-mobile");
+    if (startBtn) {
+      startBtn.disabled = false;
+      startBtn.innerText = "Iniciar Partida";
     }
-    
-    if (!me) return;
-
-    // É anfitrião se for o primeiro jogador CONECTADO da lista
-    isHost = activePlayers.length > 0 && activePlayers[0].id === socket.id;
-    updateAbortMatchButton();
-    // Se o anfitrião mudar durante o pódio, adiciona o botão
-    // de retorno somente se ainda não existir.
-    const votingScreen = document.getElementById('voting-screen');
-
-    const isVotingVisible =
-        votingScreen &&
-        votingScreen.style.display !== 'none';
-
-    const gameOverCard = isVotingVisible
-        ? votingScreen.querySelector('#game-over-card')
-        : null;
-
-    if (
-        gameOverCard &&
-        isHost &&
-        !gameOverCard.querySelector('#restart-btn-podium')
-    ) {
-        const restartBtn = document.createElement('button');
-
-        restartBtn.id = 'restart-btn-podium';
-        restartBtn.style.marginTop = '20px';
-        restartBtn.style.background = '#22c55e';
-        restartBtn.textContent = 'Voltar ao Lobby 🔄';
-
-        restartBtn.addEventListener('click', () => {
-            socket.emit('return-to-lobby');
-        });
-
-        gameOverCard.appendChild(restartBtn);
-    }
-
-    if (isGameStarted) return;
-
-    exibirTela('waiting-screen');
-
-    document.getElementById('user-display').innerText = me.avatar;
-    document.getElementById('welcome-name').innerText = me.name;
-
-    if (isHost) {
-        document.getElementById('host-controls').style.display = 'block';
-        document.getElementById('waiting-msg').style.display = 'none';
-        
-        const startBtn = document.getElementById('start-btn-mobile');
-        if (startBtn) {
-            startBtn.disabled = false;
-            startBtn.innerText = 'Iniciar Partida';
-        }
-    } else {
-        document.getElementById('host-controls').style.display = 'none';
-        document.getElementById('waiting-msg').style.display = 'block';
-        document.getElementById('waiting-msg').innerText = 'Aguardando ' + (activePlayers[0] ? activePlayers[0].name : 'anfitrião') + ' iniciar a partida...';
-    }
+  } else {
+    document.getElementById("host-controls").style.display = "none";
+    document.getElementById("waiting-msg").style.display = "block";
+    document.getElementById("waiting-msg").innerText =
+      "Aguardando " +
+      (activePlayers[0] ? activePlayers[0].name : "anfitrião") +
+      " iniciar a partida...";
+  }
 });
 
 // BOTAO INICIAR (ANFITRIÃO)
-document.getElementById('start-btn-mobile').addEventListener('click', (e) => {
-    e.target.disabled = true;
-    e.target.innerText = 'Iniciando partida... ⏳';
-    socket.emit('start-game');
+document.getElementById("start-btn-mobile").addEventListener("click", (e) => {
+  e.target.disabled = true;
+  e.target.innerText = "Iniciando partida... ⏳";
+  socket.emit("start-game");
 });
 
 // FUNÇÃO CENTRALIZADA DE ENVIO (MANUAL E AUTOMÁTICA)
 function enviarDesenhoAtual() {
-    if (hasSubmittedCurrentRound) return;
+  if (hasSubmittedCurrentRound) return;
 
-    const canvas = document.getElementById('paintCanvas');
-    const drawingScreen = document.getElementById('drawing-screen');
-    const submitBtn = document.getElementById('submit-btn');
+  const canvas = document.getElementById("paintCanvas");
+  const drawingScreen = document.getElementById("drawing-screen");
+  const submitBtn = document.getElementById("submit-btn");
 
-    if (!canvas || currentDrawingRound === null) {
-        return;
-    }
+  if (!canvas || currentDrawingRound === null) {
+    return;
+  }
 
-    hasSubmittedCurrentRound = true;
+  hasSubmittedCurrentRound = true;
 
-    const imageData = canvas.toDataURL('image/jpeg', 0.5);
+  const imageData = canvas.toDataURL("image/jpeg", 0.5);
 
-    if (submitBtn) {
-        submitBtn.disabled = true;
-        submitBtn.textContent = 'Enviando... ⏳';
-    }
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Enviando... ⏳";
+  }
 
-    socket.emit(
-        'submit-drawing',
-        {
-            round: currentDrawingRound,
-            imageData
-        },
-        response => {
-            if (!response || !response.ok) {
-                hasSubmittedCurrentRound = false;
+  socket.emit(
+    "submit-drawing",
+    {
+      round: currentDrawingRound,
+      imageData,
+    },
+    (response) => {
+      if (!response || !response.ok) {
+        hasSubmittedCurrentRound = false;
 
-                if (submitBtn) {
-                    submitBtn.disabled = false;
-                    submitBtn.textContent = 'Enviar Desenho';
-                }
-
-                let errorEl = drawingScreen.querySelector(
-                    '.draw-submit-error'
-                );
-
-                if (!errorEl) {
-                    errorEl = document.createElement('p');
-                    errorEl.className = 'draw-submit-error';
-                    errorEl.style.color = '#f87171';
-                    errorEl.style.fontSize = '0.9rem';
-
-                    drawingScreen.appendChild(errorEl);
-                }
-
-                errorEl.textContent =
-                    response?.message ||
-                    'Não foi possível enviar o desenho. Tente novamente.';
-
-                return;
-            }
-
-            // O servidor confirmou o recebimento.
-            drawingScreen.innerHTML = '';
-
-            const card = document.createElement('div');
-            card.className = 'card';
-            card.style.marginTop = '50px';
-
-            const h2 = document.createElement('h2');
-            h2.textContent = 'Desenho Enviado! 🚀';
-
-            const p = document.createElement('p');
-            p.style.color = '#94a3b8';
-            p.style.fontSize = '1rem';
-            p.textContent =
-                'Aguardando os outros jogadores terminarem...';
-
-            card.appendChild(h2);
-            card.appendChild(p);
-            drawingScreen.appendChild(card);
-
-            updateAbortMatchButton();
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = "Enviar Desenho";
         }
-    );
+
+        let errorEl = drawingScreen.querySelector(".draw-submit-error");
+
+        if (!errorEl) {
+          errorEl = document.createElement("p");
+          errorEl.className = "draw-submit-error";
+          errorEl.style.color = "#f87171";
+          errorEl.style.fontSize = "0.9rem";
+
+          drawingScreen.appendChild(errorEl);
+        }
+
+        errorEl.textContent =
+          response?.message ||
+          "Não foi possível enviar o desenho. Tente novamente.";
+
+        return;
+      }
+
+      // O servidor confirmou o recebimento.
+      drawingScreen.innerHTML = "";
+
+      const card = document.createElement("div");
+      card.className = "card";
+      card.style.marginTop = "50px";
+
+      const h2 = document.createElement("h2");
+      h2.textContent = "Desenho Enviado! 🚀";
+
+      const p = document.createElement("p");
+      p.style.color = "#94a3b8";
+      p.style.fontSize = "1rem";
+      p.textContent = "Aguardando os outros jogadores terminarem...";
+
+      card.appendChild(h2);
+      card.appendChild(p);
+      drawingScreen.appendChild(card);
+
+      updateAbortMatchButton();
+    },
+  );
 }
 
 // FASE DE DESENHO (OUVINTE ÚNICO)
-socket.on('start-round', (data) => {
-    if (!hasJoined) return;
-    currentDrawingRound = data.round;
-    isGameStarted = true;
-    hasSubmittedCurrentRound = false; // Reseta a trava da nova rodada
-    exibirTela('drawing-screen');
+socket.on("start-round", (data) => {
+  if (!hasJoined) return;
+  currentDrawingRound = data.round;
+  isGameStarted = true;
+  hasSubmittedCurrentRound = false; // Reseta a trava da nova rodada
+  exibirTela("drawing-screen");
 
-    const drawingScreen = document.getElementById('drawing-screen');
-    drawingScreen.innerHTML = '';
+  const drawingScreen = document.getElementById("drawing-screen");
+  drawingScreen.innerHTML = "";
 
-    const themeBox = document.createElement('div');
-    themeBox.className = 'theme-box';
+  const themeBox = document.createElement("div");
+  themeBox.className = "theme-box";
 
-    const roundSpan = document.createElement('span');
-    roundSpan.style.fontSize = '0.85rem';
-    roundSpan.style.color = '#94a3b8';
-    roundSpan.textContent = 'Rodada ' + data.round + ' de 6 - TEMA:';
+  const roundSpan = document.createElement("span");
+  roundSpan.style.fontSize = "0.85rem";
+  roundSpan.style.color = "#94a3b8";
+  roundSpan.textContent = "Rodada " + data.round + " de 6 - TEMA:";
 
-    const themeTitle = document.createElement('h3');
-    themeTitle.id = 'my-theme';
-    themeTitle.style.margin = '5px 0';
-    themeTitle.style.color = '#facc15';
-    themeTitle.textContent = data.theme;
+  const themeTitle = document.createElement("h3");
+  themeTitle.id = "my-theme";
+  themeTitle.style.margin = "5px 0";
+  themeTitle.style.color = "#facc15";
+  themeTitle.textContent = data.theme;
 
-    themeBox.appendChild(roundSpan);
-    themeBox.appendChild(themeTitle);
+  themeBox.appendChild(roundSpan);
+  themeBox.appendChild(themeTitle);
 
-    const paletteBox = document.createElement('div');
-    paletteBox.className = 'palette-box';
+  const paletteBox = document.createElement("div");
+  paletteBox.className = "palette-box";
 
-    const toolsBox = document.createElement('div');
-    toolsBox.className = 'tools-box';
+  const toolsBox = document.createElement("div");
+  toolsBox.className = "tools-box";
 
-    const canvas = document.createElement('canvas');
-    canvas.id = 'paintCanvas';
-    canvas.width = 310;
-    canvas.height = 330;
+  const canvas = document.createElement("canvas");
+  canvas.id = "paintCanvas";
+  canvas.width = 310;
+  canvas.height = 330;
 
-    const toolbar = document.createElement('div');
-    toolbar.className = 'toolbar';
+  const toolbar = document.createElement("div");
+  toolbar.className = "toolbar";
 
-    const clearBtn = document.createElement('button');
-    clearBtn.id = 'clear-btn';
-    clearBtn.style.background = '#ef4444';
-    clearBtn.textContent = 'Limpar Tudo';
+  const clearBtn = document.createElement("button");
+  clearBtn.id = "clear-btn";
+  clearBtn.style.background = "#ef4444";
+  clearBtn.textContent = "Limpar Tudo";
 
-    const submitBtn = document.createElement('button');
-    submitBtn.id = 'submit-btn';
-    submitBtn.style.background = '#22c55e';
-    submitBtn.textContent = 'Enviar Desenho';
+  const submitBtn = document.createElement("button");
+  submitBtn.id = "submit-btn";
+  submitBtn.style.background = "#22c55e";
+  submitBtn.textContent = "Enviar Desenho";
 
-    toolbar.appendChild(clearBtn);
-    toolbar.appendChild(submitBtn);
+  toolbar.appendChild(clearBtn);
+  toolbar.appendChild(submitBtn);
 
-    drawingScreen.appendChild(themeBox);
-    drawingScreen.appendChild(paletteBox);
-    drawingScreen.appendChild(toolsBox);
-    drawingScreen.appendChild(canvas);
-    drawingScreen.appendChild(toolbar);
+  drawingScreen.appendChild(themeBox);
+  drawingScreen.appendChild(paletteBox);
+  drawingScreen.appendChild(toolsBox);
+  drawingScreen.appendChild(canvas);
+  drawingScreen.appendChild(toolbar);
 
-    initCanvas(canvas, clearBtn, paletteBox, toolsBox);
-    isGameOver = false;
-    updateAbortMatchButton();
+  initCanvas(canvas, clearBtn, paletteBox, toolsBox);
+  isGameOver = false;
+  updateAbortMatchButton();
 
-    submitBtn.addEventListener('click', () => {
-        enviarDesenhoAtual();
-    });
+  submitBtn.addEventListener("click", () => {
+    enviarDesenhoAtual();
+  });
 });
 
 // OUVINTE DO TEMPORIZADOR COM AUTO-SUBMIT
-socket.on('timer-tick', (timeLeft) => {
-    let timerEl = document.getElementById('game-timer');
+socket.on("timer-tick", (timeLeft) => {
+  let timerEl = document.getElementById("game-timer");
 
-    if (!timerEl) {
-        timerEl = document.createElement('div');
-        timerEl.id = 'game-timer';
-        timerEl.style.position = 'fixed';
-        timerEl.style.top = '10px';
-        timerEl.style.right = '15px';
-        timerEl.style.fontWeight = 'bold';
-        timerEl.style.fontSize = '1rem';
-        timerEl.style.color = '#facc15';
-        timerEl.style.background = '#1e293b';
-        timerEl.style.padding = '6px 12px';
-        timerEl.style.borderRadius = '20px';
-        timerEl.style.border = '1px solid #38bdf8';
-        timerEl.style.zIndex = '9999';
-        timerEl.style.boxShadow = '0 4px 10px rgba(0,0,0,0.3)';
-        document.body.appendChild(timerEl);
-    }
+  if (!timerEl) {
+    timerEl = document.createElement("div");
+    timerEl.id = "game-timer";
+    timerEl.style.position = "fixed";
+    timerEl.style.top = "10px";
+    timerEl.style.right = "15px";
+    timerEl.style.fontWeight = "bold";
+    timerEl.style.fontSize = "1rem";
+    timerEl.style.color = "#facc15";
+    timerEl.style.background = "#1e293b";
+    timerEl.style.padding = "6px 12px";
+    timerEl.style.borderRadius = "20px";
+    timerEl.style.border = "1px solid #38bdf8";
+    timerEl.style.zIndex = "9999";
+    timerEl.style.boxShadow = "0 4px 10px rgba(0,0,0,0.3)";
+    document.body.appendChild(timerEl);
+  }
 
-    timerEl.style.display = 'block';
-    timerEl.textContent = '⏱️ ' + timeLeft + 's';
+  timerEl.style.display = "block";
+  timerEl.textContent = "⏱️ " + timeLeft + "s";
 
-    if (timeLeft <= 10) {
-        timerEl.style.color = '#ef4444';
-        timerEl.style.borderColor = '#ef4444';
-    } else {
-        timerEl.style.color = '#facc15';
-        timerEl.style.borderColor = '#38bdf8';
-    }
+  if (timeLeft <= 10) {
+    timerEl.style.color = "#ef4444";
+    timerEl.style.borderColor = "#ef4444";
+  } else {
+    timerEl.style.color = "#facc15";
+    timerEl.style.borderColor = "#38bdf8";
+  }
 
-    // Auto-submit no último segundo se ainda não enviou
-    const drawingScreen = document.getElementById('drawing-screen');
-    const isDrawingActive = drawingScreen && drawingScreen.style.display !== 'none';
+  // Auto-submit no último segundo se ainda não enviou
+  const drawingScreen = document.getElementById("drawing-screen");
+  const isDrawingActive =
+    drawingScreen && drawingScreen.style.display !== "none";
 
-    if (timeLeft <= 0 && isDrawingActive && !hasSubmittedCurrentRound) {
-        enviarDesenhoAtual();
-    }
+  if (timeLeft <= 0 && isDrawingActive && !hasSubmittedCurrentRound) {
+    enviarDesenhoAtual();
+  }
 });
 
 // FASE DE VOTAÇÃO
-socket.on('start-voting-round', (data) => {
-    if (!hasJoined) return;
-    isGameStarted = true;
-    isGameOver = false;
-    exibirTela('voting-screen');
+socket.on("start-voting-round", (data) => {
+  if (!hasJoined) return;
+  isGameStarted = true;
+  isGameOver = false;
+  exibirTela("voting-screen");
 
-    const votingScreen = document.getElementById('voting-screen');
-    if (votingScreen) {
-        votingScreen.innerHTML = '';
-        renderVotingScreen(votingScreen, data, socket);
-        updateAbortMatchButton();
-    }
+  const votingScreen = document.getElementById("voting-screen");
+  if (votingScreen) {
+    votingScreen.innerHTML = "";
+    renderVotingScreen(votingScreen, data, socket);
+    updateAbortMatchButton();
+  }
 });
 
 // FIM DE JOGO
-socket.on('game-over', (leaderboard) => {
-    if (!hasJoined) return;
-    isGameStarted = true;
-    isGameOver = true;
-    exibirTela('voting-screen');
+socket.on("game-over", (leaderboard) => {
+  if (!hasJoined) return;
+  isGameStarted = true;
+  isGameOver = true;
+  exibirTela("voting-screen");
 
-    const timerEl = document.getElementById('game-timer');
-    if (timerEl) timerEl.style.display = 'none';
+  const timerEl = document.getElementById("game-timer");
+  if (timerEl) timerEl.style.display = "none";
 
-    const votingScreen = document.getElementById('voting-screen');
-    votingScreen.innerHTML = '';
+  const votingScreen = document.getElementById("voting-screen");
+  votingScreen.innerHTML = "";
 
-    const me = leaderboard.find(p => p.id === socket.id);
-    const myRank = leaderboard.findIndex(p => p.id === socket.id) + 1;
+  const me = leaderboard.find((p) => p.id === socket.id);
+  const myRank = leaderboard.findIndex((p) => p.id === socket.id) + 1;
 
-    const card = document.createElement('div');
-    card.id = 'game-over-card';
-    card.className = 'card';
-    card.style.marginTop = '40px';
+  const card = document.createElement("div");
+  card.id = "game-over-card";
+  card.className = "card";
+  card.style.marginTop = "40px";
 
-    const h2 = document.createElement('h2');
-    h2.style.color = '#facc15';
-    h2.textContent = 'Fim de Jogo! 🏆';
+  const h2 = document.createElement("h2");
+  h2.style.color = "#facc15";
+  h2.textContent = "Fim de Jogo! 🏆";
 
-    const p1 = document.createElement('p');
-    p1.style.fontSize = '1.3rem';
-    p1.style.fontWeight = 'bold';
-    p1.style.color = '#38bdf8';
+  const p1 = document.createElement("p");
+  p1.style.fontSize = "1.3rem";
+  p1.style.fontWeight = "bold";
+  p1.style.color = "#38bdf8";
 
-    if (me) {
-        p1.textContent = myRank + 'º Lugar (' + me.score + ' pts)';
-    } else {
-        p1.textContent = 'Partida Encerrada';
-    }
+  if (me) {
+    p1.textContent = myRank + "º Lugar (" + me.score + " pts)";
+  } else {
+    p1.textContent = "Partida Encerrada";
+  }
 
-    const p2 = document.createElement('p');
-    p2.style.color = '#94a3b8';
-    p2.textContent = 'Olhe para a TV para ver o pódio completo!';
+  const p2 = document.createElement("p");
+  p2.style.color = "#94a3b8";
+  p2.textContent = "Olhe para a TV para ver o pódio completo!";
 
-    card.appendChild(h2);
-    card.appendChild(p1);
-    card.appendChild(p2);
+  card.appendChild(h2);
+  card.appendChild(p1);
+  card.appendChild(p2);
 
-    if (isHost) {
-        const restartBtn = document.createElement('button');
-        restartBtn.id = 'restart-btn-podium';
-        restartBtn.style.marginTop = '20px';
-        restartBtn.style.background = '#22c55e';
-        restartBtn.textContent = 'Voltar ao Lobby 🔄';
-        restartBtn.addEventListener('click', () => {
-            socket.emit('return-to-lobby');
-        });
-        card.appendChild(restartBtn);
-    }
+  if (isHost) {
+    const restartBtn = document.createElement("button");
+    restartBtn.id = "restart-btn-podium";
+    restartBtn.style.marginTop = "20px";
+    restartBtn.style.background = "#22c55e";
+    restartBtn.textContent = "Voltar ao Lobby 🔄";
+    restartBtn.addEventListener("click", () => {
+      socket.emit("return-to-lobby");
+    });
+    card.appendChild(restartBtn);
+  }
 
-    votingScreen.appendChild(card);
+  votingScreen.appendChild(card);
 });
 
 // RETORNO AO LOBBY
 // RETORNO AO LOBBY
-socket.on('back-to-lobby', (players) => {
-    isGameStarted = false;
-    latestPlayers = players;
-    isGameOver = false;
-    const votingScreen = document.getElementById('voting-screen');
+socket.on("back-to-lobby", (players) => {
+  isGameStarted = false;
+  latestPlayers = players;
+  isGameOver = false;
+  const votingScreen = document.getElementById("voting-screen");
 
-    if (votingScreen) {
-        votingScreen.innerHTML = '';
+  if (votingScreen) {
+    votingScreen.innerHTML = "";
+  }
+  const timerEl = document.getElementById("game-timer");
+  if (timerEl) timerEl.style.display = "none";
+
+  const me = players.find((p) => p.id === socket.id);
+
+  if (me) {
+    hasJoined = true;
+    exibirTela("waiting-screen");
+    isHost = players.length > 0 && players[0].id === socket.id;
+
+    document.getElementById("host-controls").style.display = isHost
+      ? "block"
+      : "none";
+    document.getElementById("waiting-msg").style.display = isHost
+      ? "none"
+      : "block";
+
+    // RESETA O BOTÃO DO ANFITRIÃO AO VOLTAR DA PARTIDA ANTERIOR
+    const startBtn = document.getElementById("start-btn-mobile");
+    if (startBtn) {
+      startBtn.disabled = false;
+      startBtn.innerText = "Iniciar Partida";
     }
-    const timerEl = document.getElementById('game-timer');
-    if (timerEl) timerEl.style.display = 'none';
 
-    const me = players.find(p => p.id === socket.id);
-
-    if (me) {
-        hasJoined = true;
-        exibirTela('waiting-screen');
-        isHost = players.length > 0 && players[0].id === socket.id;
-        
-        document.getElementById('host-controls').style.display = isHost ? 'block' : 'none';
-        document.getElementById('waiting-msg').style.display = isHost ? 'none' : 'block';
-        
-        // RESETA O BOTÃO DO ANFITRIÃO AO VOLTAR DA PARTIDA ANTERIOR
-        const startBtn = document.getElementById('start-btn-mobile');
-        if (startBtn) {
-            startBtn.disabled = false;
-            startBtn.innerText = 'Iniciar Partida';
-        }
-
-        if (!isHost) {
-            document.getElementById('waiting-msg').innerText = 'Aguardando ' + players[0].name + ' iniciar a partida...';
-        }
-    } else {
-        hasJoined = false;
-        exibirTela('login-screen');
+    if (!isHost) {
+      document.getElementById("waiting-msg").innerText =
+        "Aguardando " + players[0].name + " iniciar a partida...";
     }
-    updateAbortMatchButton();
+  } else {
+    hasJoined = false;
+    exibirTela("login-screen");
+  }
+  updateAbortMatchButton();
 });

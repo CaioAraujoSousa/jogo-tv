@@ -1,135 +1,167 @@
-export function initCanvas(canvasElement, clearBtn, paletteContainer, toolContainer) {
-    const ctx = canvasElement.getContext('2d');
-    let painting = false;
+export function initCanvas(
+  canvasElement,
+  clearBtn,
+  paletteContainer,
+  toolContainer,
+) {
+  const ctx = canvasElement.getContext("2d");
+  let painting = false;
 
-    // Estado do Pincel
-    let currentColor = '#0f172a';
-    let currentLineWidth = 2.5;
-    let isEraser = false;
+  // Estado do Pincel
+  let currentColor = "#0f172a";
+  let currentLineWidth = 2.5;
+  let isEraser = false;
 
-    // Fundo Branco Inicial
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, canvasElement.width, canvasElement.height);
+  // Fundo Branco Inicial
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, canvasElement.width, canvasElement.height);
 
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
 
-    function getPos(e) {
-        const rect = canvasElement.getBoundingClientRect();
-        const clientX = (e.touches && e.touches.length > 0) ? e.touches[0].clientX : e.clientX;
-        const clientY = (e.touches && e.touches.length > 0) ? e.touches[0].clientY : e.clientY;
-        
-        const scaleX = canvasElement.width / rect.width;
-        const scaleY = canvasElement.height / rect.height;
+  function getPos(e) {
+    const rect = canvasElement.getBoundingClientRect();
+    const clientX =
+      e.touches && e.touches.length > 0 ? e.touches[0].clientX : e.clientX;
+    const clientY =
+      e.touches && e.touches.length > 0 ? e.touches[0].clientY : e.clientY;
 
-        return {
-            x: (clientX - rect.left) * scaleX,
-            y: (clientY - rect.top) * scaleY
-        };
-    }
+    const scaleX = canvasElement.width / rect.width;
+    const scaleY = canvasElement.height / rect.height;
 
-    function startDraw(e) {
-        painting = true;
-        const pos = getPos(e);
+    return {
+      x: (clientX - rect.left) * scaleX,
+      y: (clientY - rect.top) * scaleY,
+    };
+  }
 
-        ctx.strokeStyle = isEraser ? '#ffffff' : currentColor;
-        ctx.lineWidth = isEraser ? 14 : currentLineWidth;
+  function startDraw(e) {
+    painting = true;
+    const pos = getPos(e);
 
-        // Pingo imediato no toque
-        ctx.beginPath();
-        ctx.arc(pos.x, pos.y, ctx.lineWidth / 2, 0, Math.PI * 2);
-        ctx.fillStyle = isEraser ? '#ffffff' : currentColor;
-        ctx.fill();
+    ctx.strokeStyle = isEraser ? "#ffffff" : currentColor;
+    ctx.lineWidth = isEraser ? 14 : currentLineWidth;
 
-        ctx.beginPath();
-        ctx.moveTo(pos.x, pos.y);
-    }
+    // Pingo imediato no toque
+    ctx.beginPath();
+    ctx.arc(pos.x, pos.y, ctx.lineWidth / 2, 0, Math.PI * 2);
+    ctx.fillStyle = isEraser ? "#ffffff" : currentColor;
+    ctx.fill();
 
-    function stopDraw() {
-        painting = false;
-        ctx.beginPath();
-    }
+    ctx.beginPath();
+    ctx.moveTo(pos.x, pos.y);
+  }
 
-    function draw(e) {
-        if (!painting) return;
-        const pos = getPos(e);
+  function stopDraw() {
+    painting = false;
+    ctx.beginPath();
+  }
 
-        ctx.strokeStyle = isEraser ? '#ffffff' : currentColor;
-        ctx.lineWidth = isEraser ? 14 : currentLineWidth;
+  function draw(e) {
+    if (!painting) return;
+    const pos = getPos(e);
 
-        ctx.lineTo(pos.x, pos.y);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(pos.x, pos.y);
-    }
+    ctx.strokeStyle = isEraser ? "#ffffff" : currentColor;
+    ctx.lineWidth = isEraser ? 14 : currentLineWidth;
 
-    // Eventos de Mouse
-    canvasElement.addEventListener('mousedown', startDraw);
-    canvasElement.addEventListener('mouseup', stopDraw);
-    canvasElement.addEventListener('mouseleave', stopDraw);
-    canvasElement.addEventListener('mousemove', draw);
+    ctx.lineTo(pos.x, pos.y);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(pos.x, pos.y);
+  }
 
-    // Eventos de Toque (Celular)
-    canvasElement.addEventListener('touchstart', (e) => { e.preventDefault(); startDraw(e); });
-    canvasElement.addEventListener('touchend', (e) => { e.preventDefault(); stopDraw(); });
-    canvasElement.addEventListener('touchcancel', (e) => { e.preventDefault(); stopDraw(); });
-    canvasElement.addEventListener('touchmove', (e) => { e.preventDefault(); draw(e); });
+  // Eventos de Mouse
+  canvasElement.addEventListener("mousedown", startDraw);
+  canvasElement.addEventListener("mouseup", stopDraw);
+  canvasElement.addEventListener("mouseleave", stopDraw);
+  canvasElement.addEventListener("mousemove", draw);
 
-    // Botão Limpar Tudo
-    if (clearBtn) {
-        clearBtn.addEventListener('click', () => {
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(0, 0, canvasElement.width, canvasElement.height);
-        });
-    }
+  // Eventos de Toque (Celular)
+  canvasElement.addEventListener("touchstart", (e) => {
+    e.preventDefault();
+    startDraw(e);
+  });
+  canvasElement.addEventListener("touchend", (e) => {
+    e.preventDefault();
+    stopDraw();
+  });
+  canvasElement.addEventListener("touchcancel", (e) => {
+    e.preventDefault();
+    stopDraw();
+  });
+  canvasElement.addEventListener("touchmove", (e) => {
+    e.preventDefault();
+    draw(e);
+  });
 
-    // Criar os botões da Paleta de Cores
-    if (paletteContainer) {
-        paletteContainer.innerHTML = '';
-        const colors = ['#0f172a', '#ef4444', '#3b82f6', '#22c55e', '#f59e0b', '#a855f7', '#ec4899', '#78350f'];
+  // Botão Limpar Tudo
+  if (clearBtn) {
+    clearBtn.addEventListener("click", () => {
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, canvasElement.width, canvasElement.height);
+    });
+  }
 
-        colors.forEach((color, index) => {
-            const btn = document.createElement('button');
-            btn.type = 'button';
-            btn.className = 'color-btn' + (index === 0 ? ' selected' : '');
-            btn.style.backgroundColor = color;
+  // Criar os botões da Paleta de Cores
+  if (paletteContainer) {
+    paletteContainer.innerHTML = "";
+    const colors = [
+      "#0f172a",
+      "#ef4444",
+      "#3b82f6",
+      "#22c55e",
+      "#f59e0b",
+      "#a855f7",
+      "#ec4899",
+      "#78350f",
+    ];
 
-            btn.addEventListener('click', () => {
-                isEraser = false;
-                currentColor = color;
-                if (toolContainer) {
-                    const eraserBtn = toolContainer.querySelector('.eraser-btn');
-                    if (eraserBtn) eraserBtn.classList.remove('active');
-                }
-                paletteContainer.querySelectorAll('.color-btn').forEach(b => b.classList.remove('selected'));
-                btn.classList.add('selected');
-            });
+    colors.forEach((color, index) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "color-btn" + (index === 0 ? " selected" : "");
+      btn.style.backgroundColor = color;
 
-            paletteContainer.appendChild(btn);
-        });
-    }
+      btn.addEventListener("click", () => {
+        isEraser = false;
+        currentColor = color;
+        if (toolContainer) {
+          const eraserBtn = toolContainer.querySelector(".eraser-btn");
+          if (eraserBtn) eraserBtn.classList.remove("active");
+        }
+        paletteContainer
+          .querySelectorAll(".color-btn")
+          .forEach((b) => b.classList.remove("selected"));
+        btn.classList.add("selected");
+      });
 
-    // Criar o botão da Borracha
-    if (toolContainer) {
-        toolContainer.innerHTML = '';
+      paletteContainer.appendChild(btn);
+    });
+  }
 
-        const eraserBtn = document.createElement('button');
-        eraserBtn.type = 'button';
-        eraserBtn.className = 'eraser-btn';
-        eraserBtn.textContent = '🧹 Borracha';
+  // Criar o botão da Borracha
+  if (toolContainer) {
+    toolContainer.innerHTML = "";
 
-        eraserBtn.addEventListener('click', () => {
-            isEraser = !isEraser;
-            if (isEraser) {
-                eraserBtn.classList.add('active');
-                if (paletteContainer) {
-                    paletteContainer.querySelectorAll('.color-btn').forEach(b => b.classList.remove('selected'));
-                }
-            } else {
-                eraserBtn.classList.remove('active');
-            }
-        });
+    const eraserBtn = document.createElement("button");
+    eraserBtn.type = "button";
+    eraserBtn.className = "eraser-btn";
+    eraserBtn.textContent = "🧹 Borracha";
 
-        toolContainer.appendChild(eraserBtn);
-    }
+    eraserBtn.addEventListener("click", () => {
+      isEraser = !isEraser;
+      if (isEraser) {
+        eraserBtn.classList.add("active");
+        if (paletteContainer) {
+          paletteContainer
+            .querySelectorAll(".color-btn")
+            .forEach((b) => b.classList.remove("selected"));
+        }
+      } else {
+        eraserBtn.classList.remove("active");
+      }
+    });
+
+    toolContainer.appendChild(eraserBtn);
+  }
 }
