@@ -178,10 +178,10 @@ io.on('connection', (socket) => {
         player => !player.disconnected
     );
 
-    if (activePlayers.length < 3) {
+    if (activePlayers.length < 2) {
         socket.emit(
             'error-message',
-            'É necessário pelo menos 3 jogadores para iniciar a partida!'
+            'É necessário pelo menos 2 jogadores para iniciar a partida!'
         );
         return;
     }
@@ -365,7 +365,7 @@ io.on('connection', (socket) => {
     const canAbortUnderstaffedMatch =
         gameState.isStarted &&
         gameState.phase !== 'lobby' &&
-        activePlayers.length < 3;
+        activePlayers.length < 2;
 
     // Permite retornar ao lobby no pódio ou abortar uma
     // partida que ficou com menos de 3 jogadores ativos.

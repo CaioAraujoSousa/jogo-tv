@@ -42,7 +42,7 @@ function updateAbortMatchButton() {
         isGameStarted &&
         !isGameOver &&
         isHost &&
-        activePlayers.length < 3;
+        activePlayers.length < 2;
 
     let button = document.getElementById('abort-match-btn');
 

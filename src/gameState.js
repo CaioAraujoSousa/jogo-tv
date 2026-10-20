@@ -89,8 +89,23 @@ class GameState {
     }
 
     startGame() {
-        this.phase = 'drawing';
-        if (this.players.length < 1) return null;
+        // Só permite iniciar uma nova partida a partir do lobby.
+        if (this.phase !== 'lobby' || this.isStarted) {
+            return null;
+        }
+
+        // Conta apenas jogadores que continuam conectados.
+        const activePlayers = this.players.filter(
+            player => !player.disconnected
+        );
+
+        // O jogo exige pelo menos 3 jogadores ativos.
+        if (activePlayers.length < 2) {
+            return null;
+        }
+
+        // Remove possíveis registros de jogadores desconectados no lobby.
+        this.players = activePlayers;
 
         this.isStarted = true;
         this.currentRound = 1;
@@ -98,10 +113,13 @@ class GameState {
         this.matchThemes = getRandomThemes(6);
         this.drawings = {};
         this.votes = {};
-        this.players.forEach(p => {
-            p.score = 0;
-            p.disconnected = false;
+
+        // Reinicia a pontuação dos jogadores participantes.
+        this.players.forEach(player => {
+            player.score = 0;
         });
+
+        // Esta função define a fase como drawing após as validações.
         return this.getCurrentRoundData();
     }
 
