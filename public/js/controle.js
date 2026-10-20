@@ -2,7 +2,6 @@ import { initCanvas } from './modules/canvasEngine.js?v=3';
 import { renderVotingScreen } from './modules/votingEngine.js?v=4';
 
 const socket = io();
-window.socketTeste = socket;
 let selectedAvatar = '🦊';
 let isHost = false;
 let isGameStarted = false;

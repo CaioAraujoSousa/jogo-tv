@@ -80,20 +80,87 @@ io.on('connection', (socket) => {
     socket.emit('update-lobby', gameState.players);
 
     socket.on('join-game', (data) => {
-        if (gameState.isStarted) {
-            socket.emit('error-message', 'O jogo já começou! Aguarde a próxima partida.');
-            return;
-        }
-        if (gameState.players.length >= 8) {
-            socket.emit('error-message', 'A sala está cheia! (Máximo de 8 jogadores)');
-            return;
-        }
-        if (gameState.players.some(p => p.name === data.name)) {
-            socket.emit('error-message', 'Este nome já está em uso. Escolha outro!');
+        // Só é permitido entrar durante o lobby.
+        if (gameState.phase !== 'lobby' || gameState.isStarted) {
+            socket.emit(
+                'error-message',
+                'A partida já começou! Aguarde a próxima partida.'
+            );
             return;
         }
 
-        gameState.addPlayer(socket.id, data.name, data.avatar);
+        // Impede que o mesmo dispositivo seja registrado duas vezes.
+        const existingPlayer = gameState.players.find(
+            player => player.id === socket.id
+        );
+
+        if (existingPlayer) {
+            // Apenas sincroniza novamente esse jogador com o lobby.
+            socket.emit('update-lobby', gameState.players);
+            return;
+        }
+
+        // Valida os dados recebidos do cliente.
+        if (!data || typeof data !== 'object' || Array.isArray(data)) {
+            socket.emit('error-message', 'Dados de entrada inválidos.');
+            return;
+        }
+
+        const name = typeof data.name === 'string'
+            ? data.name.trim()
+            : '';
+
+        if (!name) {
+            socket.emit('error-message', 'Digite um apelido válido.');
+            return;
+        }
+
+        if (name.length > 12) {
+            socket.emit(
+                'error-message',
+                'O apelido deve ter no máximo 12 caracteres.'
+            );
+            return;
+        }
+
+        // Aceita somente os avatares oferecidos pelo jogo.
+        const allowedAvatars = new Set([
+            '🦊', '🐼', '🐱', '🐶',
+            '🦁', '🦄', '🤖', '🚀'
+        ]);
+
+        const avatar = allowedAvatars.has(data.avatar)
+            ? data.avatar
+            : '🦊';
+
+        if (gameState.players.length >= 8) {
+            socket.emit(
+                'error-message',
+                'A sala está cheia! (Máximo de 8 jogadores)'
+            );
+            return;
+        }
+
+        // Evita nomes repetidos, inclusive com diferenças de maiúsculas,
+        // minúsculas ou espaços nas extremidades.
+        const normalizedName = name.toLocaleLowerCase('pt-BR');
+
+        const nameAlreadyUsed = gameState.players.some(player =>
+            !player.disconnected &&
+            typeof player.name === 'string' &&
+            player.name.trim().toLocaleLowerCase('pt-BR') === normalizedName
+        );
+
+        if (nameAlreadyUsed) {
+            socket.emit(
+                'error-message',
+                'Este nome já está em uso. Escolha outro!'
+            );
+            return;
+        }
+
+        gameState.addPlayer(socket.id, name, avatar);
+
         io.emit('update-lobby', gameState.players);
     });
 
