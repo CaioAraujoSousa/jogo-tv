@@ -259,11 +259,20 @@ io.on('connection', (socket) => {
         }
 
         const activePlayers = gameState.players.filter(
-            p => !p.disconnected
+        p => !p.disconnected
         );
 
+        const roundDrawings = gameState.drawings[data.round] || {};
+
+        const submittedActiveCount = activePlayers.filter(player =>
+            Object.prototype.hasOwnProperty.call(
+                roundDrawings,
+                player.id
+            )
+        ).length;
+
         io.emit('drawing-progress', {
-            submitted: result.submittedCount,
+            submitted: submittedActiveCount,
             total: activePlayers.length
         });
 
@@ -402,7 +411,26 @@ io.on('connection', (socket) => {
             if (typeof gameState.setDisconnected === 'function') {
                 gameState.setDisconnected(socket.id);
             }
+            if (gameState.phase === 'drawing') {
+    const activePlayers = gameState.players.filter(
+        p => !p.disconnected
+    );
 
+    const roundDrawings =
+        gameState.drawings[gameState.currentRound] || {};
+
+    const submittedActiveCount = activePlayers.filter(player =>
+        Object.prototype.hasOwnProperty.call(
+            roundDrawings,
+            player.id
+        )
+    ).length;
+
+    io.emit('drawing-progress', {
+        submitted: submittedActiveCount,
+        total: activePlayers.length
+    });
+}
             // Notifica o frontend sobre a lista atualizada (para redefinir quem é o anfitrião ativo)
             io.emit('update-lobby', gameState.players);
 
