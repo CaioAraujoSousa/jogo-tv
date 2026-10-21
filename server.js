@@ -128,7 +128,7 @@ io.on("connection", (socket) => {
       "🐱",
       "🐶",
       "🦁",
-      "",
+      "🦄",
       "🤖",
       "🚀",
     ]);
@@ -498,8 +498,22 @@ function handleVotingCompletion(roundNum) {
   clearRoundTimer();
 
   if (roundNum < 3) {
-    const votingCards = gameState.getVotingCards(roundNum + 1);
+    const nextRound = roundNum + 1;
+    const votingCards = gameState.getVotingCards(nextRound);
+
+    console.log("[DEBUG VOTING SERVER]", {
+      completedRound: roundNum,
+      requestedRound: nextRound,
+      payloadRound: votingCards?.round,
+      cardsCount: Array.isArray(votingCards?.cards)
+        ? votingCards.cards.length
+        : null,
+      phase: gameState.phase,
+      currentVotingRound: gameState.currentVotingRound,
+    });
+
     io.emit("start-voting-round", votingCards);
+
     startRoundTimer(30, () => handleVotingCompletion(roundNum + 1));
   } else if (roundNum === 3) {
     gameState.currentRound = 4;
