@@ -1,3 +1,5 @@
+const crypto = require("crypto");
+
 let getRandomThemes;
 try {
   getRandomThemes = require("../themes").getRandomThemes;
@@ -37,6 +39,8 @@ class GameState {
     this.matchThemes = [];
     this.drawings = {};
     this.votes = {};
+    // token secreto -> id do jogador. Fica só no servidor (nunca vai para a TV nem para outros celulares).
+    this.tokens = new Map();
   }
 
   returnToLobby() {
@@ -54,6 +58,7 @@ class GameState {
       p.score = 0;
       p.disconnected = false;
     });
+    this.pruneTokens();
   }
 
   reset() {
@@ -65,6 +70,7 @@ class GameState {
     this.matchThemes = [];
     this.drawings = {};
     this.votes = {};
+    this.tokens.clear();
   }
 
   addPlayer(id, name, avatar) {
@@ -90,6 +96,7 @@ class GameState {
     const index = this.players.findIndex((p) => p.id === id);
     if (index !== -1) {
       this.players.splice(index, 1);
+      this.pruneTokens();
     }
     if (this.players.length <= 1) {
       this.isStarted = false;
@@ -116,6 +123,7 @@ class GameState {
 
     // Remove possíveis registros de jogadores desconectados no lobby.
     this.players = activePlayers;
+    this.pruneTokens();
 
     this.isStarted = true;
     this.currentRound = 1;
@@ -135,10 +143,7 @@ class GameState {
 
   getCurrentRoundData() {
     this.phase = "drawing";
-    return {
-      round: this.currentRound,
-      theme: this.matchThemes[this.currentRound - 1],
-    };
+    return this.peekRoundData();
   }
 
   submitDrawing(playerId, roundNum, imageData) {
@@ -349,6 +354,11 @@ class GameState {
   getVotingCards(roundNum) {
     this.phase = "voting";
     this.currentVotingRound = roundNum;
+    return this.buildVotingCards(roundNum);
+  }
+
+  // Monta os cards da votação SEM alterar o estado do jogo.
+  buildVotingCards(roundNum) {
     const theme = this.matchThemes[roundNum - 1];
     const roundDrawings = this.drawings[roundNum] || {};
 
@@ -366,6 +376,55 @@ class GameState {
       theme: theme,
       cards: cards,
     };
+  }
+
+  // ---------- Reentrada de jogadores ----------
+
+  // Cria um token secreto para o jogador entrar de novo depois de uma queda.
+  issueToken(playerId) {
+    const token = crypto.randomBytes(16).toString("hex");
+    this.tokens.set(token, playerId);
+    return token;
+  }
+
+  getPlayerIdByToken(token) {
+    if (typeof token !== "string") return undefined;
+    return this.tokens.get(token);
+  }
+
+  // Descarta os tokens de jogadores que não estão mais na sala.
+  pruneTokens() {
+    const ids = new Set(this.players.map((p) => p.id));
+    for (const [token, playerId] of this.tokens) {
+      if (!ids.has(playerId)) this.tokens.delete(token);
+    }
+  }
+
+  // ---------- Leituras que NÃO alteram o estado (usadas na reentrada) ----------
+
+  peekRoundData() {
+    return {
+      round: this.currentRound,
+      theme: this.matchThemes[this.currentRound - 1],
+    };
+  }
+
+  peekVotingData() {
+    return this.buildVotingCards(this.currentVotingRound);
+  }
+
+  hasSubmittedDrawing(playerId) {
+    const roundDrawings = this.drawings[this.currentRound] || {};
+    return Object.prototype.hasOwnProperty.call(roundDrawings, playerId);
+  }
+
+  hasVoted(playerId) {
+    const roundVotes = this.votes[this.currentVotingRound] || {};
+    return Object.prototype.hasOwnProperty.call(roundVotes, playerId);
+  }
+
+  peekLeaderboard() {
+    return [...this.players].sort((a, b) => b.score - a.score);
   }
 
   calculateFinalLeaderboard() {

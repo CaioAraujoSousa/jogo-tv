@@ -22,14 +22,7 @@ app.post("/reset", (req, res) => {
     return res.status(404).send("Não encontrado.");
   }
 
-  clearRoundTimer();
-  isTransitioning = false;
-
-  gameState.reset();
-
-  // Notifica todos os clientes para voltarem às telas iniciais.
-  io.emit("back-to-lobby", []);
-  io.emit("update-lobby", []);
+  resetRoom();
 
   return res.send(
     "<h1>Sala resetada com sucesso. Todos podem entrar novamente.</h1>",
@@ -41,6 +34,111 @@ let roundTimerInterval = null;
 let roundTimeoutHandle = null;
 let roundTimeLeft = 0;
 let isTransitioning = false; // Trava para impedir avanços duplos de rodada
+
+// --- TOLERÂNCIA A QUEDAS DE CONEXÃO ---
+// Tempos em milissegundos. As variáveis de ambiente existem só para facilitar testes.
+const LOBBY_GRACE_MS = Number(process.env.LOBBY_GRACE_MS) || 30_000;
+const EMPTY_ROOM_MS = Number(process.env.EMPTY_ROOM_MS) || 30_000;
+
+// id do jogador -> id da conexão (socket) que o representa agora.
+const playerSockets = new Map();
+// id do jogador -> timer de remoção (só vale no lobby).
+const pendingRemovals = new Map();
+let emptyRoomTimeout = null;
+
+function cancelPendingRemoval(playerId) {
+  const timeout = pendingRemovals.get(playerId);
+  if (timeout) {
+    clearTimeout(timeout);
+    pendingRemovals.delete(playerId);
+  }
+}
+
+function clearGraceTimers() {
+  pendingRemovals.forEach((timeout) => clearTimeout(timeout));
+  pendingRemovals.clear();
+  if (emptyRoomTimeout) {
+    clearTimeout(emptyRoomTimeout);
+    emptyRoomTimeout = null;
+  }
+}
+
+// Limpa a sala inteira (usado pelo /reset e quando a sala fica vazia).
+function resetRoom() {
+  clearRoundTimer();
+  isTransitioning = false;
+  clearGraceTimers();
+  playerSockets.clear();
+
+  gameState.reset();
+
+  // Notifica todos os clientes para voltarem às telas iniciais.
+  io.emit("back-to-lobby", []);
+  io.emit("update-lobby", []);
+}
+
+// No lobby, quem some é marcado como ausente e só é removido se não voltar a tempo.
+function scheduleLobbyRemoval(playerId) {
+  cancelPendingRemoval(playerId);
+
+  const timeout = setTimeout(() => {
+    pendingRemovals.delete(playerId);
+
+    const player = gameState.players.find((p) => p.id === playerId);
+    if (!player || !player.disconnected || gameState.isStarted) return;
+
+    gameState.removePlayer(playerId);
+    io.emit("update-lobby", gameState.players);
+    console.log(`Jogador ${player.name} removido do lobby (ausente por muito tempo).`);
+  }, LOBBY_GRACE_MS);
+
+  pendingRemovals.set(playerId, timeout);
+}
+
+// Durante a partida, se todos saírem, a sala só é limpa depois de um tempo.
+function scheduleEmptyRoomReset() {
+  if (emptyRoomTimeout) clearTimeout(emptyRoomTimeout);
+
+  emptyRoomTimeout = setTimeout(() => {
+    emptyRoomTimeout = null;
+    if (!gameState.players.every((p) => p.disconnected)) return;
+
+    console.log("Sala sem jogadores ativos por muito tempo. Sala limpa.");
+    resetRoom();
+  }, EMPTY_ROOM_MS);
+}
+
+function emitDrawingProgress() {
+  const activePlayers = gameState.players.filter((p) => !p.disconnected);
+  const roundDrawings = gameState.drawings[gameState.currentRound] || {};
+
+  const submitted = activePlayers.filter((p) =>
+    Object.prototype.hasOwnProperty.call(roundDrawings, p.id),
+  ).length;
+
+  io.emit("drawing-progress", { submitted, total: activePlayers.length });
+}
+
+// Retrato da partida enviado SÓ ao jogador que voltou (não altera o estado do jogo).
+function buildSnapshot(playerId) {
+  const snapshot = {
+    playerId,
+    phase: gameState.phase,
+    isStarted: gameState.isStarted,
+  };
+
+  if (gameState.phase === "drawing") {
+    snapshot.drawing = gameState.peekRoundData();
+    snapshot.hasSubmitted = gameState.hasSubmittedDrawing(playerId);
+  } else if (gameState.phase === "voting") {
+    snapshot.voting = gameState.peekVotingData();
+    snapshot.hasVoted = gameState.hasVoted(playerId);
+  } else if (gameState.phase === "game-over") {
+    snapshot.leaderboard = gameState.peekLeaderboard();
+  }
+
+  return snapshot;
+}
 
 function clearRoundTimer() {
   if (roundTimerInterval) {
@@ -166,7 +264,54 @@ io.on("connection", (socket) => {
 
     gameState.addPlayer(socket.id, name, avatar);
     socket.data.playerId = socket.id;
+    playerSockets.set(socket.id, socket.id);
 
+    // Entrega ao celular a identidade (pública) e o token (secreto) para reentrar depois.
+    socket.emit("joined", {
+      playerId: socket.id,
+      token: gameState.issueToken(socket.id),
+    });
+
+    io.emit("update-lobby", gameState.players);
+  });
+
+  // REENTRADA: o celular apresenta o token e volta a ser o mesmo jogador.
+  socket.on("rejoin", (data) => {
+    const token = data && typeof data === "object" ? data.token : null;
+    const playerId = gameState.getPlayerIdByToken(token);
+    const player = playerId
+      ? gameState.players.find((p) => p.id === playerId)
+      : null;
+
+    if (!player) {
+      socket.emit("rejoin-failed");
+      return;
+    }
+
+    // Se ainda existir uma conexão antiga do mesmo jogador, esta nova a substitui.
+    const oldSocketId = playerSockets.get(playerId);
+    playerSockets.set(playerId, socket.id);
+    socket.data.playerId = playerId;
+
+    if (oldSocketId && oldSocketId !== socket.id) {
+      const oldSocket = io.sockets.sockets.get(oldSocketId);
+      if (oldSocket) oldSocket.disconnect(true);
+    }
+
+    cancelPendingRemoval(playerId);
+    if (emptyRoomTimeout) {
+      clearTimeout(emptyRoomTimeout);
+      emptyRoomTimeout = null;
+    }
+    player.disconnected = false;
+
+    console.log(`Jogador ${player.name} voltou (fase: ${gameState.phase}).`);
+
+    // Primeiro o retrato da partida, só para este celular...
+    socket.emit("rejoined", buildSnapshot(playerId));
+
+    // ...depois avisa todos de que o jogador voltou.
+    if (gameState.phase === "drawing") emitDrawingProgress();
     io.emit("update-lobby", gameState.players);
   });
 
@@ -404,6 +549,18 @@ io.on("connection", (socket) => {
       })),
     });
 
+    const playerId = socket.data.playerId;
+
+    // Aparelho que nunca entrou como jogador (ex.: a TV): nada a fazer.
+    if (!playerId) return;
+
+    // Conexão antiga de um jogador que já voltou por outra conexão: ignora.
+    if (playerSockets.get(playerId) !== socket.id) {
+      console.log("Conexão antiga ignorada (o jogador já voltou por outra conexão).");
+      return;
+    }
+    playerSockets.delete(playerId);
+
     if (gameState.isStarted) {
       // Marca o jogador como desconectado sem apagar seus desenhos.
       if (typeof gameState.setDisconnected === "function") {
@@ -415,19 +572,11 @@ io.on("connection", (socket) => {
         (player) => !player.disconnected,
       );
 
-      // Se ninguém restar, encerra a sessão imediatamente.
+      // Se ninguém restar, espera um tempo antes de limpar a sala,
+      // para dar chance de todos voltarem (ex.: queda geral de wifi).
       if (activePlayers.length === 0) {
-        clearRoundTimer();
-        isTransitioning = false;
-
-        gameState.reset();
-
-        // Sincroniza a TV e todos os clientes com o lobby vazio.
-        io.emit("back-to-lobby", []);
-        io.emit("update-lobby", []);
-
-        console.log("Todos os jogadores saíram. Sala limpa.");
-
+        io.emit("update-lobby", gameState.players);
+        scheduleEmptyRoomReset();
         return;
       }
 
@@ -464,8 +613,9 @@ io.on("connection", (socket) => {
       return;
     }
 
-    // No lobby, a saída remove normalmente o jogador.
-    gameState.removePlayer(socket.data.playerId);
+    // No lobby, o jogador fica "ausente" e só é removido se não voltar a tempo.
+    gameState.setDisconnected(playerId);
+    scheduleLobbyRemoval(playerId);
     io.emit("update-lobby", gameState.players);
   });
 });
