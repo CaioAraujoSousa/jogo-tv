@@ -75,7 +75,12 @@ function startRoundTimer(seconds, onTimeout) {
 }
 
 io.on("connection", (socket) => {
-  console.log("Novo dispositivo conectado:", socket.id);
+  console.log(
+    "Novo dispositivo conectado:",
+    socket.id,
+    "|",
+    (socket.handshake.headers["user-agent"] || "").slice(0, 70),
+  );
 
   socket.emit("update-lobby", gameState.players);
 
@@ -91,7 +96,7 @@ io.on("connection", (socket) => {
 
     // Impede que o mesmo dispositivo seja registrado duas vezes.
     const existingPlayer = gameState.players.find(
-      (player) => player.id === socket.id,
+      (player) => player.id === socket.data.playerId,
     );
 
     if (existingPlayer) {
@@ -160,6 +165,7 @@ io.on("connection", (socket) => {
     }
 
     gameState.addPlayer(socket.id, name, avatar);
+    socket.data.playerId = socket.id;
 
     io.emit("update-lobby", gameState.players);
   });
@@ -189,7 +195,7 @@ io.on("connection", (socket) => {
     // Usa o primeiro jogador ativo como anfitrião.
     const activeHost = activePlayers[0];
 
-    if (!activeHost || activeHost.id !== socket.id) {
+    if (!activeHost || activeHost.id !== socket.data.playerId) {
       socket.emit(
         "error-message",
         "Somente o anfitrião atual pode iniciar a partida.",
@@ -221,7 +227,7 @@ io.on("connection", (socket) => {
     };
 
     const player = gameState.players.find(
-      (p) => p.id === socket.id && !p.disconnected,
+      (p) => p.id === socket.data.playerId && !p.disconnected,
     );
 
     if (!player) {
@@ -246,7 +252,7 @@ io.on("connection", (socket) => {
     }
 
     const result = gameState.submitDrawing(
-      socket.id,
+      socket.data.playerId,
       data.round,
       data.imageData,
     );
@@ -286,7 +292,7 @@ io.on("connection", (socket) => {
     };
 
     const player = gameState.players.find(
-      (p) => p.id === socket.id && !p.disconnected,
+      (p) => p.id === socket.data.playerId && !p.disconnected,
     );
 
     if (!player) {
@@ -322,7 +328,11 @@ io.on("connection", (socket) => {
       });
     }
 
-    const result = gameState.submitVote(socket.id, roundNum, data.votes);
+    const result = gameState.submitVote(
+      socket.data.playerId,
+      roundNum,
+      data.votes,
+    );
 
     if (!result.ok) {
       return reply(result);
@@ -346,7 +356,7 @@ io.on("connection", (socket) => {
     if (!activeHost) return;
 
     // Somente o anfitrião ativo pode executar a ação.
-    if (activeHost.id !== socket.id) {
+    if (activeHost.id !== socket.data.playerId) {
       socket.emit(
         "error-message",
         "Somente o anfitrião atual pode executar esta ação.",
@@ -378,8 +388,10 @@ io.on("connection", (socket) => {
     io.emit("update-lobby", gameState.players);
   });
 
-  socket.on("disconnect", () => {
-    console.log(`Dispositivo desconectado: ${socket.id}`);
+  socket.on("disconnect", (reason) => {
+    console.log(
+      `Dispositivo desconectado: ${socket.id} | motivo: ${reason} | transporte: ${socket.conn.transport.name}`,
+    );
 
     console.log("[DEBUG DISCONNECT]", {
       phase: gameState.phase,
@@ -395,7 +407,7 @@ io.on("connection", (socket) => {
     if (gameState.isStarted) {
       // Marca o jogador como desconectado sem apagar seus desenhos.
       if (typeof gameState.setDisconnected === "function") {
-        gameState.setDisconnected(socket.id);
+        gameState.setDisconnected(socket.data.playerId);
       }
 
       // Verifica quantos jogadores continuam conectados.
@@ -453,7 +465,7 @@ io.on("connection", (socket) => {
     }
 
     // No lobby, a saída remove normalmente o jogador.
-    gameState.removePlayer(socket.id);
+    gameState.removePlayer(socket.data.playerId);
     io.emit("update-lobby", gameState.players);
   });
 });
