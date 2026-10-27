@@ -1,14 +1,40 @@
-export function renderVotingScreen(container, data, socket) {
+// Tela "Votos Enviados" (usada depois da confirmação do servidor e na reentrada).
+function fillVotedCard(cardDiv) {
+  cardDiv.innerHTML = "";
+
+  const doneTitle = document.createElement("h2");
+  doneTitle.textContent = "Votos Enviados! 🎯";
+
+  const doneText = document.createElement("p");
+  doneText.style.color = "#94a3b8";
+  doneText.textContent = "Aguardando os outros jogadores votarem...";
+
+  cardDiv.appendChild(doneTitle);
+  cardDiv.appendChild(doneText);
+}
+
+export function renderVotedScreen(container) {
+  container.innerHTML = "";
+
+  const cardDiv = document.createElement("div");
+  cardDiv.className = "card";
+  fillVotedCard(cardDiv);
+
+  container.appendChild(cardDiv);
+}
+
+// myPlayerId = identidade do jogador (não muda quando a conexão muda).
+export function renderVotingScreen(container, data, socket, myPlayerId) {
   container.innerHTML = "";
 
   if (!data || !Array.isArray(data.cards)) {
     container.innerHTML =
-      '«div class="card"»«h2»Aguardando votação... ⏳«/h2»«/div»';
+      '<div class="card"><h2>Aguardando votação... ⏳</h2></div>';
     return;
   }
 
   const otherCardsCount = data.cards.filter(
-    (c) => c.artistId !== socket.id,
+    (c) => c.artistId !== myPlayerId,
   ).length;
 
   const maxVotes = Math.min(3, otherCardsCount);
@@ -51,7 +77,7 @@ export function renderVotingScreen(container, data, socket) {
     grid.innerHTML = "";
 
     data.cards.forEach((card) => {
-      const isMyDrawing = card.artistId === socket.id;
+      const isMyDrawing = card.artistId === myPlayerId;
       const voteIndex = selectedVotes.indexOf(card.number);
       const isSelected = voteIndex !== -1;
 
@@ -129,7 +155,15 @@ export function renderVotingScreen(container, data, socket) {
       return;
     }
 
+    // Sem conexão, o envio não sairia do aparelho: avisa em vez de ficar preso.
+    if (!socket.connected) {
+      feedback.textContent =
+        "Sem conexão no momento. Aguarde reconectar e tente de novo.";
+      return;
+    }
+
     sendBtn.disabled = true;
+    sendBtn.dataset.pending = "1"; // envio aguardando resposta do servidor
     sendBtn.style.opacity = "0.5";
     sendBtn.textContent = "Enviando votos... ⏳";
 
@@ -147,22 +181,13 @@ export function renderVotingScreen(container, data, socket) {
             response?.message || "Não foi possível confirmar seus votos.";
 
           // Restaura o botão de acordo com a seleção atual.
+          delete sendBtn.dataset.pending;
           updateUI();
           return;
         }
 
         // Só mostra confirmação depois da resposta do servidor.
-        cardDiv.innerHTML = "";
-
-        const doneTitle = document.createElement("h2");
-        doneTitle.textContent = "Votos Enviados! 🎯";
-
-        const doneText = document.createElement("p");
-        doneText.style.color = "#94a3b8";
-        doneText.textContent = "Aguardando os outros jogadores votarem...";
-
-        cardDiv.appendChild(doneTitle);
-        cardDiv.appendChild(doneText);
+        fillVotedCard(cardDiv);
       },
     );
   });

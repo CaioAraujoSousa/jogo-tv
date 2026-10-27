@@ -1,5 +1,8 @@
 import { initCanvas } from "./modules/canvasEngine.js?v=3";
-import { renderVotingScreen } from "./modules/votingEngine.js?v=4";
+import {
+  renderVotingScreen,
+  renderVotedScreen,
+} from "./modules/votingEngine.js?v=5";
 
 const socket = io();
 let selectedAvatar = "🦊";
@@ -10,6 +13,84 @@ let hasSubmittedCurrentRound = false;
 let latestPlayers = [];
 let isGameOver = false;
 let currentDrawingRound = null;
+let drawingRoundShown = null; // rodada cujo canvas está na tela agora
+let votingRoundShown = null; // rodada cuja votação está na tela agora
+let myPlayerId = null; // identidade do jogador (não muda quando a conexão muda)
+let replacedByAnotherSession = false;
+
+// ---------- SESSÃO: permite voltar ao jogo depois de uma queda ----------
+// O servidor entrega um token secreto ao entrar. Guardamos no aparelho para
+// provar, depois de uma queda ou de recarregar a página, que somos o mesmo jogador.
+const SESSION_KEY = "jogoTv.sessao";
+
+function loadSession() {
+  try {
+    const raw = localStorage.getItem(SESSION_KEY);
+    const saved = raw ? JSON.parse(raw) : null;
+    if (
+      saved &&
+      typeof saved.token === "string" &&
+      typeof saved.playerId === "string"
+    ) {
+      return saved;
+    }
+  } catch (e) {
+    // Armazenamento indisponível (ex.: navegação privada): segue sem sessão salva.
+  }
+  return null;
+}
+
+let session = loadSession();
+myPlayerId = session ? session.playerId : null;
+
+function saveSession(newSession) {
+  session = newSession;
+  try {
+    localStorage.setItem(SESSION_KEY, JSON.stringify(newSession));
+  } catch (e) {
+    // Sem armazenamento: a sessão continua valendo enquanto a página estiver aberta.
+  }
+}
+
+function clearSession() {
+  session = null;
+  myPlayerId = null;
+  try {
+    localStorage.removeItem(SESSION_KEY);
+  } catch (e) {
+    // ignora
+  }
+}
+
+// Faixa de aviso no topo ("Reconectando..."). Texto vazio remove a faixa.
+function setConnectionBanner(text) {
+  let banner = document.getElementById("conn-banner");
+
+  if (!text) {
+    if (banner) banner.remove();
+    return;
+  }
+
+  if (!banner) {
+    banner = document.createElement("div");
+    banner.id = "conn-banner";
+    banner.setAttribute("role", "status");
+    banner.style.position = "fixed";
+    banner.style.top = "0";
+    banner.style.left = "0";
+    banner.style.right = "0";
+    banner.style.padding = "8px 12px";
+    banner.style.textAlign = "center";
+    banner.style.fontSize = "0.9rem";
+    banner.style.fontWeight = "bold";
+    banner.style.background = "#b45309";
+    banner.style.color = "#ffffff";
+    banner.style.zIndex = "10000";
+    document.body.appendChild(banner);
+  }
+
+  banner.textContent = text;
+}
 
 // GERENCIADOR CENTRAL DE EXIBIÇÃO DE TELAS
 function exibirTela(idTelaDesejada) {
@@ -144,7 +225,7 @@ socket.on("update-lobby", (players) => {
   // Filtra apenas quem continua conectado
   latestPlayers = players;
   const activePlayers = players.filter((p) => !p.disconnected);
-  const me = players.find((p) => p.id === socket.id);
+  const me = players.find((p) => p.id === myPlayerId);
   hasJoined = !!me;
   const waitingError = document.getElementById("waiting-error-msg");
 
@@ -156,7 +237,7 @@ socket.on("update-lobby", (players) => {
   if (!me) return;
 
   // É anfitrião se for o primeiro jogador CONECTADO da lista
-  isHost = activePlayers.length > 0 && activePlayers[0].id === socket.id;
+  isHost = activePlayers.length > 0 && activePlayers[0].id === myPlayerId;
   updateAbortMatchButton();
   // Se o anfitrião mudar durante o pódio, adiciona o botão
   // de retorno somente se ainda não existir.
@@ -220,6 +301,48 @@ document.getElementById("start-btn-mobile").addEventListener("click", (e) => {
   socket.emit("start-game");
 });
 
+function showDrawingError(message) {
+  const drawingScreen = document.getElementById("drawing-screen");
+  if (!drawingScreen) return;
+
+  let errorEl = drawingScreen.querySelector(".draw-submit-error");
+
+  if (!errorEl) {
+    errorEl = document.createElement("p");
+    errorEl.className = "draw-submit-error";
+    errorEl.style.color = "#f87171";
+    errorEl.style.fontSize = "0.9rem";
+
+    drawingScreen.appendChild(errorEl);
+  }
+
+  errorEl.textContent = message;
+}
+
+// Tela "Desenho Enviado" (usada depois da confirmação do servidor e na reentrada).
+function showSubmittedCard() {
+  const drawingScreen = document.getElementById("drawing-screen");
+  drawingScreen.innerHTML = "";
+
+  const card = document.createElement("div");
+  card.className = "card";
+  card.style.marginTop = "50px";
+
+  const h2 = document.createElement("h2");
+  h2.textContent = "Desenho Enviado! 🚀";
+
+  const p = document.createElement("p");
+  p.style.color = "#94a3b8";
+  p.style.fontSize = "1rem";
+  p.textContent = "Aguardando os outros jogadores terminarem...";
+
+  card.appendChild(h2);
+  card.appendChild(p);
+  drawingScreen.appendChild(card);
+
+  updateAbortMatchButton();
+}
+
 // FUNÇÃO CENTRALIZADA DE ENVIO (MANUAL E AUTOMÁTICA)
 function enviarDesenhoAtual() {
   if (hasSubmittedCurrentRound) return;
@@ -229,6 +352,14 @@ function enviarDesenhoAtual() {
   const submitBtn = document.getElementById("submit-btn");
 
   if (!canvas || currentDrawingRound === null) {
+    return;
+  }
+
+  // Sem conexão, o envio não sairia do aparelho: avisa em vez de ficar preso.
+  if (!socket.connected) {
+    showDrawingError(
+      "Sem conexão no momento. Aguarde reconectar e envie de novo.",
+    );
     return;
   }
 
@@ -275,33 +406,15 @@ function enviarDesenhoAtual() {
       }
 
       // O servidor confirmou o recebimento.
-      drawingScreen.innerHTML = "";
-
-      const card = document.createElement("div");
-      card.className = "card";
-      card.style.marginTop = "50px";
-
-      const h2 = document.createElement("h2");
-      h2.textContent = "Desenho Enviado! 🚀";
-
-      const p = document.createElement("p");
-      p.style.color = "#94a3b8";
-      p.style.fontSize = "1rem";
-      p.textContent = "Aguardando os outros jogadores terminarem...";
-
-      card.appendChild(h2);
-      card.appendChild(p);
-      drawingScreen.appendChild(card);
-
-      updateAbortMatchButton();
+      showSubmittedCard();
     },
   );
 }
 
-// FASE DE DESENHO (OUVINTE ÚNICO)
-socket.on("start-round", (data) => {
-  if (!hasJoined) return;
+// FASE DE DESENHO: monta a tela (usada pelo evento start-round e pela reentrada)
+function showDrawingRound(data) {
   currentDrawingRound = data.round;
+  drawingRoundShown = data.round;
   isGameStarted = true;
   hasSubmittedCurrentRound = false; // Reseta a trava da nova rodada
   exibirTela("drawing-screen");
@@ -366,6 +479,12 @@ socket.on("start-round", (data) => {
   submitBtn.addEventListener("click", () => {
     enviarDesenhoAtual();
   });
+}
+
+// FASE DE DESENHO (OUVINTE ÚNICO)
+socket.on("start-round", (data) => {
+  if (!hasJoined) return;
+  showDrawingRound(data);
 });
 
 // OUVINTE DO TEMPORIZADOR COM AUTO-SUBMIT
@@ -411,24 +530,28 @@ socket.on("timer-tick", (timeLeft) => {
   }
 });
 
-// FASE DE VOTAÇÃO
-socket.on("start-voting-round", (data) => {
-  if (!hasJoined) return;
+// FASE DE VOTAÇÃO: monta a tela (usada pelo evento e pela reentrada)
+function showVotingRound(data) {
   isGameStarted = true;
   isGameOver = false;
+  votingRoundShown = data.round;
   exibirTela("voting-screen");
 
   const votingScreen = document.getElementById("voting-screen");
   if (votingScreen) {
     votingScreen.innerHTML = "";
-    renderVotingScreen(votingScreen, data, socket);
+    renderVotingScreen(votingScreen, data, socket, myPlayerId);
     updateAbortMatchButton();
   }
+}
+
+socket.on("start-voting-round", (data) => {
+  if (!hasJoined) return;
+  showVotingRound(data);
 });
 
-// FIM DE JOGO
-socket.on("game-over", (leaderboard) => {
-  if (!hasJoined) return;
+// FIM DE JOGO: monta a tela (usada pelo evento game-over e pela reentrada)
+function showGameOver(leaderboard) {
   isGameStarted = true;
   isGameOver = true;
   exibirTela("voting-screen");
@@ -439,8 +562,8 @@ socket.on("game-over", (leaderboard) => {
   const votingScreen = document.getElementById("voting-screen");
   votingScreen.innerHTML = "";
 
-  const me = leaderboard.find((p) => p.id === socket.id);
-  const myRank = leaderboard.findIndex((p) => p.id === socket.id) + 1;
+  const me = leaderboard.find((p) => p.id === myPlayerId);
+  const myRank = leaderboard.findIndex((p) => p.id === myPlayerId) + 1;
 
   const card = document.createElement("div");
   card.id = "game-over-card";
@@ -483,6 +606,11 @@ socket.on("game-over", (leaderboard) => {
   }
 
   votingScreen.appendChild(card);
+}
+
+socket.on("game-over", (leaderboard) => {
+  if (!hasJoined) return;
+  showGameOver(leaderboard);
 });
 
 // RETORNO AO LOBBY
@@ -491,6 +619,9 @@ socket.on("back-to-lobby", (players) => {
   isGameStarted = false;
   latestPlayers = players;
   isGameOver = false;
+  drawingRoundShown = null;
+  votingRoundShown = null;
+  hasSubmittedCurrentRound = false;
   const votingScreen = document.getElementById("voting-screen");
 
   if (votingScreen) {
@@ -499,12 +630,12 @@ socket.on("back-to-lobby", (players) => {
   const timerEl = document.getElementById("game-timer");
   if (timerEl) timerEl.style.display = "none";
 
-  const me = players.find((p) => p.id === socket.id);
+  const me = players.find((p) => p.id === myPlayerId);
 
   if (me) {
     hasJoined = true;
     exibirTela("waiting-screen");
-    isHost = players.length > 0 && players[0].id === socket.id;
+    isHost = players.length > 0 && players[0].id === myPlayerId;
 
     document.getElementById("host-controls").style.display = isHost
       ? "block"
@@ -525,8 +656,160 @@ socket.on("back-to-lobby", (players) => {
         "Aguardando " + players[0].name + " iniciar a partida...";
     }
   } else {
+    // Não estamos mais na sala (ex.: a sala foi reiniciada): a sessão antiga não vale mais.
     hasJoined = false;
+    clearSession();
+    setConnectionBanner(null);
     exibirTela("login-screen");
   }
   updateAbortMatchButton();
 });
+
+// =====================================================================
+// REENTRADA: voltar ao mesmo jogador depois de uma queda de conexão
+// =====================================================================
+
+// O servidor entrega a identidade e o token secreto assim que entramos na sala.
+socket.on("joined", (info) => {
+  myPlayerId = info.playerId;
+  saveSession({ playerId: info.playerId, token: info.token });
+});
+
+// A cada (re)conexão, se já temos uma sessão, pedimos para voltar ao mesmo jogador.
+socket.on("connect", () => {
+  replacedByAnotherSession = false;
+
+  if (session) {
+    setConnectionBanner("Reconectando ao jogo…");
+    socket.emit("rejoin", { token: session.token });
+  } else {
+    setConnectionBanner(null);
+  }
+});
+
+socket.on("disconnect", (reason) => {
+  if (reason === "io server disconnect") {
+    // O servidor encerrou esta conexão (ex.: o mesmo jogador abriu o jogo em outra aba).
+    replacedByAnotherSession = true;
+    setConnectionBanner(
+      "Você entrou em outra aba ou aparelho. Recarregue a página para voltar aqui.",
+    );
+    return;
+  }
+
+  if (hasJoined || session) {
+    setConnectionBanner("Sem conexão. Reconectando…");
+  }
+});
+
+// O servidor não reconheceu o token (a vaga expirou ou a sala foi reiniciada).
+socket.on("rejoin-failed", () => {
+  clearSession();
+  hasJoined = false;
+  isGameStarted = false;
+  isGameOver = false;
+  setConnectionBanner(null);
+  exibirTela("login-screen");
+});
+
+// Reconhecido: o servidor manda um retrato da partida e reconstruímos a tela certa.
+socket.on("rejoined", (snap) => {
+  setConnectionBanner(null);
+  myPlayerId = snap.playerId;
+  hasJoined = true;
+
+  if (snap.phase === "drawing") {
+    restoreDrawing(snap);
+  } else if (snap.phase === "voting") {
+    restoreVoting(snap);
+  } else if (snap.phase === "game-over") {
+    showGameOver(snap.leaderboard);
+  } else {
+    // Lobby: o update-lobby que o servidor envia em seguida preenche a tela de espera.
+    isGameStarted = false;
+    isGameOver = false;
+    exibirTela("waiting-screen");
+  }
+
+  updateAbortMatchButton();
+});
+
+function restoreDrawing(snap) {
+  const round = snap.drawing.round;
+  currentDrawingRound = round;
+  isGameStarted = true;
+  isGameOver = false;
+
+  const canvasAlive =
+    !!document.getElementById("paintCanvas") && drawingRoundShown === round;
+
+  if (snap.hasSubmitted) {
+    // O servidor já tem o nosso desenho (mesmo que a confirmação tenha se perdido).
+    hasSubmittedCurrentRound = true;
+    showSubmittedCard();
+    exibirTela("drawing-screen");
+  } else if (canvasAlive) {
+    // A página continua viva: mantém o desenho em andamento e libera o envio.
+    hasSubmittedCurrentRound = false;
+
+    const submitBtn = document.getElementById("submit-btn");
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Enviar Desenho";
+    }
+
+    const errorEl = document.querySelector(".draw-submit-error");
+    if (errorEl) errorEl.remove();
+
+    exibirTela("drawing-screen");
+  } else {
+    // Página recarregada: o desenho em andamento não pode ser recuperado; recomeça a rodada.
+    showDrawingRound(snap.drawing);
+  }
+}
+
+function restoreVoting(snap) {
+  const round = snap.voting.round;
+  isGameStarted = true;
+  isGameOver = false;
+
+  if (snap.hasVoted) {
+    // O servidor já tem os nossos votos (mesmo que a confirmação tenha se perdido).
+    votingRoundShown = round;
+    exibirTela("voting-screen");
+    renderVotedScreen(document.getElementById("voting-screen"));
+    updateAbortMatchButton();
+    return;
+  }
+
+  const sendBtn = document.getElementById("send-vote-btn");
+  const voteUiAlive =
+    votingRoundShown === round && !!sendBtn && !sendBtn.dataset.pending;
+
+  if (voteUiAlive) {
+    // A votação continua na tela: mantém as escolhas já feitas.
+    exibirTela("voting-screen");
+    return;
+  }
+
+  showVotingRound(snap.voting);
+}
+
+// Ao voltar para o navegador (ou quando a internet volta), tenta reconectar já,
+// sem esperar o próximo ciclo automático de tentativas.
+function tryReconnectNow() {
+  if (!socket.connected && !replacedByAnotherSession) {
+    socket.connect();
+  }
+}
+
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") tryReconnectNow();
+});
+window.addEventListener("online", tryReconnectNow);
+
+// Página aberta com uma sessão salva: não mostra o login enquanto tentamos voltar.
+if (session) {
+  exibirTela("");
+  setConnectionBanner("Reconectando ao jogo…");
+}

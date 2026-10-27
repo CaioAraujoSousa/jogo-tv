@@ -28,6 +28,8 @@ function exibirTelaTV(idTelaDesejada) {
 
 // RENDERIZAÇÃO DOS LUGARES / ASSENTOS NO LOBBY
 function renderSeats(players) {
+  // Quem está ausente (a conexão caiu) não ocupa lugar; volta sozinho se reconectar.
+  players = players.filter((p) => !p.disconnected);
   seatsGrid.innerHTML = "";
   document.getElementById("player-count").innerText = players.length;
 
