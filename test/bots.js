@@ -198,7 +198,8 @@ function createClient(label, index) {
     c.playerId = info.playerId;
     c.originalPlayerId = info.playerId;
     c.token = info.token;
-    if (c.isDropTarget && !c.dropped) dropConnection("no lobby, logo depois de entrar");
+    // Só no cenário --drop-lobby (nos outros, o aviso "joined" pode chegar depois do início da partida).
+    if (DROP_MODE === "lobby" && c.isDropTarget && !c.dropped) dropConnection("no lobby, logo depois de entrar");
   });
 
   socket.on("rejoined", (snap) => {
@@ -402,6 +403,11 @@ const starter = setInterval(() => {
   if (!tvClient || !tvClient.everConnected) return;
   const active = tvClient.players.filter((p) => !p.disconnected);
   if (active.length !== NUM_BOTS) return;
+  // No --drop-lobby, só começa depois que o bot caiu e foi reconhecido de volta (a queda tem de acontecer NO lobby).
+  if (DROP_MODE === "lobby") {
+    const dropper = clients.find((x) => x.isDropTarget);
+    if (!dropper || dropper.recognized !== true) return;
+  }
   const host = clients.find(
     (x) => x.isBot && x.socket.connected && (x.playerId || x.socket.id) === active[0].id,
   );
