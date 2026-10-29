@@ -1,4 +1,61 @@
 const socket = io();
+
+// ---------- CONEXÃO: avisa na tela e pede o estado atual ao (re)conectar ----------
+// Se a TV perder a conexão no meio da partida, ela pode perder um evento (ex.: o início
+// de uma votação). Por isso, a cada conexão ela pede ao servidor o estado atual.
+function setTvConnectionBanner(text) {
+  let banner = document.getElementById("tv-conn-banner");
+
+  if (!text) {
+    if (banner) banner.remove();
+    return;
+  }
+
+  if (!banner) {
+    banner = document.createElement("div");
+    banner.id = "tv-conn-banner";
+    banner.setAttribute("role", "status");
+    banner.style.position = "fixed";
+    banner.style.bottom = "0";
+    banner.style.left = "0";
+    banner.style.right = "0";
+    banner.style.padding = "10px 16px";
+    banner.style.textAlign = "center";
+    banner.style.fontSize = "1.3rem";
+    banner.style.fontWeight = "bold";
+    banner.style.background = "#b45309";
+    banner.style.color = "#ffffff";
+    banner.style.zIndex = "100000";
+    document.body.appendChild(banner);
+  }
+
+  banner.textContent = text;
+}
+
+socket.on("connect", () => {
+  setTvConnectionBanner(null);
+  socket.emit("tv-sync");
+});
+
+socket.on("disconnect", () => {
+  setTvConnectionBanner("⚠️ Sem conexão com o servidor. Reconectando…");
+});
+
+// Ao voltar para a aba (ou quando a internet volta): reconecta na hora se estiver
+// desconectada; se parecer conectada, pede o estado de novo por segurança.
+function resyncTvNow() {
+  if (socket.connected) {
+    socket.emit("tv-sync");
+  } else {
+    socket.connect();
+  }
+}
+
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") resyncTvNow();
+});
+window.addEventListener("online", resyncTvNow);
+
 const controlUrl = window.location.origin + "/controle.html";
 let isGameStarted = false;
 

@@ -108,7 +108,7 @@ function scheduleEmptyRoomReset() {
   }, EMPTY_ROOM_MS);
 }
 
-function emitDrawingProgress() {
+function drawingProgressData() {
   const activePlayers = gameState.players.filter((p) => !p.disconnected);
   const roundDrawings = gameState.drawings[gameState.currentRound] || {};
 
@@ -116,7 +116,11 @@ function emitDrawingProgress() {
     Object.prototype.hasOwnProperty.call(roundDrawings, p.id),
   ).length;
 
-  io.emit("drawing-progress", { submitted, total: activePlayers.length });
+  return { submitted, total: activePlayers.length };
+}
+
+function emitDrawingProgress() {
+  io.emit("drawing-progress", drawingProgressData());
 }
 
 // Retrato da partida enviado SÓ ao jogador que voltou (não altera o estado do jogo).
@@ -313,6 +317,24 @@ io.on("connection", (socket) => {
     // ...depois avisa todos de que o jogador voltou.
     if (gameState.phase === "drawing") emitDrawingProgress();
     io.emit("update-lobby", gameState.players);
+  });
+
+  // SINCRONIZAÇÃO DA TV: ao (re)conectar, a TV pede o estado atual e recebe os mesmos
+  // eventos de sempre, só para ela. Não altera nada no jogo (usa só leituras).
+  socket.on("tv-sync", () => {
+    if (gameState.phase === "drawing") {
+      socket.emit("start-round", gameState.peekRoundData());
+      socket.emit("drawing-progress", drawingProgressData());
+    } else if (gameState.phase === "voting") {
+      socket.emit("start-voting-round", gameState.peekVotingData());
+    } else if (gameState.phase === "game-over") {
+      socket.emit("game-over", gameState.peekLeaderboard());
+    } else {
+      socket.emit("back-to-lobby", gameState.players);
+      socket.emit("update-lobby", gameState.players);
+    }
+
+    if (gameState.phase !== "lobby") socket.emit("timer-tick", roundTimeLeft);
   });
 
   socket.on("start-game", () => {
