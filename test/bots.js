@@ -44,6 +44,9 @@ const DROP_MODE = args.includes("--drop")
 const DROP = DROP_MODE !== null;
 const TV_RELOAD = args.includes("--tv-reload"); // a TV "recarrega" no começo da votação 2
 const NO_RETURN = args.includes("--no-return"); // o anfitrião NÃO volta ao lobby: testa o retorno automático do servidor
+const LAST_LEAVES = args.includes("--last-leaves"); // todos saem de vez: a sala deve ser limpa
+const LAST_RETURN = args.includes("--last-return"); // todos caem juntos e voltam: a sala NÃO pode ser limpa
+const EMPTY_MS = parseInt(getOpt("empty-ms", "30000"), 10); // precisa ser igual ao EMPTY_ROOM_MS do servidor
 
 const DELAY_S = Math.min(
   parseFloat(getOpt("delay", DROP ? "1" : TV_RELOAD ? "4" : "0")) || 0,
@@ -84,6 +87,7 @@ const clients = [];
 const failures = [];
 let finished = false;
 let startRequested = false;
+let lastLeftAt = 0;
 
 const ok = (msg) => console.log(`   ✅ ${msg}`);
 const fail = (msg) => {
@@ -247,7 +251,7 @@ function createClient(label, index) {
   );
 
   // O servidor entrega a identidade e o token secreto assim que o jogador entra.
-  socket.on("joined", (info) => {
+    socket.on("joined", (info) => {
     c.playerId = info.playerId;
     c.originalPlayerId = info.playerId;
     c.token = info.token;
@@ -279,9 +283,21 @@ function createClient(label, index) {
     c.players = players;
   });
 
-  socket.on("start-round", (data) => {
+    socket.on("start-round", (data) => {
     record(`start-round ${data.round}`);
     if (!isBot || ignoring()) return;
+
+    if ((LAST_LEAVES || LAST_RETURN) && data.round === 2 && !c.dropped) {
+      if (LAST_LEAVES) {
+        c.dropped = true;
+        console.log(`[${elapsed()}] ${label} SAIU DE VEZ (sem reconectar)`);
+        socket.disconnect(); // desconexão manual: o cliente não tenta voltar
+        lastLeftAt = Date.now();
+      } else {
+        dropConnection("na rodada de desenho 2 (todos caem juntos)");
+      }
+      return;
+    }
 
     if (
       DROP_MODE === "drawing" &&
@@ -371,8 +387,13 @@ function createClient(label, index) {
     }
   });
 
-  socket.on("back-to-lobby", () => {
+  socket.on("back-to-lobby", (players) => {
     record("back-to-lobby");
+    if (!isBot) {
+      c.lobbyAt = Date.now();
+      c.lobbyPlayers = players;
+      if (LAST_LEAVES) setTimeout(finish, 500); // espera o update-lobby que vem logo em seguida
+    }
     if (!isBot && c.podiumAt) c.podiumMs = Date.now() - c.podiumAt;
     const tvSawGameOver = clients
       .find((x) => !x.isBot)
@@ -388,6 +409,7 @@ function finish() {
   if (finished) return;
   finished = true;
   clearTimeout(globalTimer);
+  if (LAST_LEAVES) return finishLastLeaves();
 
   console.log("\n===== RESULTADO =====");
 
@@ -400,7 +422,8 @@ function finish() {
   }
 
   console.log("\n1) Todos receberam os eventos na ordem certa?");
-  const skipDropper = DROP_MODE === "drawing" || DROP_MODE === "voting";
+  const skipDropper =
+    DROP_MODE === "drawing" || DROP_MODE === "voting" || LAST_RETURN;
   for (const c of clients) {
     if (skipDropper && c.dropped) continue; // o bot que caiu perdeu eventos enquanto estava fora
     // Na TV recarregada, o tv-sync repete o evento da fase atual: ignora repetições seguidas.
@@ -517,12 +540,67 @@ function finish() {
       );
     }
   }
-  
+
+  if (LAST_RETURN) {
+    console.log("\n6) Todos caíram juntos e voltaram (--last-return)");
+    const bots = clients.filter((c) => c.isBot);
+    const recognized = bots.filter(
+      (c) => c.recognized === true && c.sameIdentity,
+    );
+    if (recognized.length === bots.length)
+      ok(`Os ${bots.length} bots foram reconhecidos com a mesma identidade`);
+    else
+      fail(
+        `Só ${recognized.length} de ${bots.length} bots foram reconhecidos ao voltar`,
+      );
+    console.log(
+      "   (A TV receber a sequência completa, sem back-to-lobby no meio, prova que a sala não foi limpa.)",
+    );
+  }
+
   if (failures.length > 0) {
     console.log(`\n❌ ${failures.length} PROBLEMA(S) ENCONTRADO(S)`);
   } else {
     console.log("\n✅ TUDO CERTO");
   }
+  clients.forEach((c) => c.socket.close());
+  process.exit(failures.length === 0 ? 0 : 1);
+}
+
+function finishLastLeaves() {
+  console.log("\n===== RESULTADO (último jogador saindo) =====\n");
+  const tv = clients.find((c) => !c.isBot);
+
+  const expected = ["start-round 1", "start-round 2", "back-to-lobby"];
+  if (JSON.stringify(tv.seq) === JSON.stringify(expected)) {
+    ok(
+      "A TV recebeu só: rodada 1, rodada 2 e volta ao lobby (sem pódio nem votação fantasma)",
+    );
+  } else {
+    fail(`Sequência da TV inesperada: [${tv.seq.join(", ")}]`);
+  }
+
+  if (Array.isArray(tv.lobbyPlayers) && tv.lobbyPlayers.length === 0)
+    ok("back-to-lobby chegou com lista de jogadores vazia");
+  else fail("back-to-lobby não chegou com lista vazia");
+
+  if (tv.players.length === 0) ok("Lobby da TV ficou vazio (sala limpa)");
+  else fail(`Lobby da TV ainda tem ${tv.players.length} jogador(es)`);
+
+  const waited = tv.lobbyAt - lastLeftAt;
+  if (tv.lobbyAt && waited >= EMPTY_MS - 500 && waited <= EMPTY_MS + 2500) {
+    ok(
+      `A sala foi limpa ${(waited / 1000).toFixed(1)}s depois do último jogador sair (tolerância: ${EMPTY_MS / 1000}s)`,
+    );
+  } else {
+    fail(
+      `A sala foi limpa após ${(waited / 1000).toFixed(1)}s, esperado cerca de ${EMPTY_MS / 1000}s. Confira se o servidor está com EMPTY_ROOM_MS=${EMPTY_MS}`,
+    );
+  }
+
+  if (failures.length > 0)
+    console.log(`\n❌ ${failures.length} PROBLEMA(S) ENCONTRADO(S)`);
+  else console.log("\n✅ TUDO CERTO");
   clients.forEach((c) => c.socket.close());
   process.exit(failures.length === 0 ? 0 : 1);
 }
