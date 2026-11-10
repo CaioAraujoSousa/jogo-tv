@@ -713,7 +713,7 @@ function handleVotingCompletion(roundNum) {
     gameState.phase = "game-over";
     io.emit("game-over", leaderboard);
 
-    startRoundTimer(45, () => {
+    startRoundTimer(10, () => {
       clearRoundTimer();
       isTransitioning = false;
       gameState.returnToLobby();

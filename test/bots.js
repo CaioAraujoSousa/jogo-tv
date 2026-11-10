@@ -42,9 +42,13 @@ const DROP_MODE = args.includes("--drop")
       ? "lobby"
       : null;
 const DROP = DROP_MODE !== null;
-// Segundos que cada bot espera antes de enviar desenho/voto (máx. 25, por causa do timer de 30 s da votação).
-// Nos cenários de queda o padrão é 1 s, para dar tempo de o bot voltar antes do fim da partida.
-const DELAY_S = Math.min(parseFloat(getOpt("delay", DROP ? "1" : "0")) || 0, 25);
+const TV_RELOAD = args.includes("--tv-reload"); // a TV "recarrega" no começo da votação 2
+const NO_RETURN = args.includes("--no-return"); // o anfitrião NÃO volta ao lobby: testa o retorno automático do servidor
+
+const DELAY_S = Math.min(
+  parseFloat(getOpt("delay", DROP ? "1" : TV_RELOAD ? "4" : "0")) || 0,
+  25,
+);
 const TIMEOUT_MS = 120_000;
 
 if (NUM_BOTS < 2 || NUM_BOTS > 8) {
@@ -57,10 +61,18 @@ const AVATARS = ["🦊", "🐼", "🐱", "🐶", "🦁", "🤖", "🚀", "🦊"]
 
 // Ordem esperada dos eventos de jogo, do ponto de vista de qualquer cliente.
 const EXPECTED = [
-  "start-round 1", "start-round 2", "start-round 3",
-  "start-voting-round 1", "start-voting-round 2", "start-voting-round 3",
-  "start-round 4", "start-round 5", "start-round 6",
-  "start-voting-round 4", "start-voting-round 5", "start-voting-round 6",
+  "start-round 1",
+  "start-round 2",
+  "start-round 3",
+  "start-voting-round 1",
+  "start-voting-round 2",
+  "start-voting-round 3",
+  "start-round 4",
+  "start-round 5",
+  "start-round 6",
+  "start-voting-round 4",
+  "start-voting-round 5",
+  "start-voting-round 6",
   "game-over",
   "back-to-lobby",
 ];
@@ -102,8 +114,13 @@ function createClient(label, index) {
   const isBot = index !== null;
   const socket = io(SERVER_URL);
   const c = {
-    label, index, isBot, socket,
-    seq: [], players: [], leaderboard: null,
+    label,
+    index,
+    isBot,
+    socket,
+    seq: [],
+    players: [],
+    leaderboard: null,
     joined: false,
     // Identidade do jogador: NÃO muda quando a conexão muda.
     playerId: null,
@@ -111,7 +128,9 @@ function createClient(label, index) {
     token: null,
     sameIdentity: null,
     isDropTarget: DROP_MODE === "lobby" && index === NUM_BOTS - 1,
-    dropped: false, reconnected: false, recognized: null,
+    dropped: false,
+    reconnected: false,
+    recognized: null,
     everConnected: false,
   };
   clients.push(c);
@@ -129,7 +148,9 @@ function createClient(label, index) {
 
   const dropConnection = (when) => {
     c.dropped = true;
-    console.log(`[${elapsed()}] ${label} PERDEU A CONEXÃO (simulando troca de app) ${when}`);
+    console.log(
+      `[${elapsed()}] ${label} PERDEU A CONEXÃO (simulando troca de app) ${when}`,
+    );
     socket.disconnect();
     setTimeout(() => socket.connect(), 1500);
   };
@@ -137,29 +158,48 @@ function createClient(label, index) {
   // "late" = ação disparada pelo retrato da reconexão; pode ser recusada se a fase já passou.
   const submitDrawingLater = (round, late) => {
     setTimeout(() => {
-      socket.emit("submit-drawing", { round, imageData: fakeImage(label, round) }, (res) => {
-        if (res && res.ok) return;
-        if (late) {
-          console.log(`           (${label}: desenho atrasado recusado, normal numa reconexão: ${res && res.message})`);
-        } else {
-          fail(`${label}: desenho da rodada ${round} recusado (${res && res.message})`);
-        }
-      });
+      socket.emit(
+        "submit-drawing",
+        { round, imageData: fakeImage(label, round) },
+        (res) => {
+          if (res && res.ok) return;
+          if (late) {
+            console.log(
+              `           (${label}: desenho atrasado recusado, normal numa reconexão: ${res && res.message})`,
+            );
+          } else {
+            fail(
+              `${label}: desenho da rodada ${round} recusado (${res && res.message})`,
+            );
+          }
+        },
+      );
     }, randomDelay());
   };
 
   const voteLater = (data, late) => {
     const others = data.cards.filter((card) => card.artistId !== myId());
-    const picks = shuffle(others.map((card) => card.number)).slice(0, Math.min(3, others.length));
+    const picks = shuffle(others.map((card) => card.number)).slice(
+      0,
+      Math.min(3, others.length),
+    );
     setTimeout(() => {
-      socket.emit("submit-votes", { round: data.round, votes: picks }, (res) => {
-        if (res && res.ok) return;
-        if (late) {
-          console.log(`           (${label}: voto atrasado recusado, normal numa reconexão: ${res && res.message})`);
-        } else {
-          fail(`${label}: votos da rodada ${data.round} recusados (${res && res.message})`);
-        }
-      });
+      socket.emit(
+        "submit-votes",
+        { round: data.round, votes: picks },
+        (res) => {
+          if (res && res.ok) return;
+          if (late) {
+            console.log(
+              `           (${label}: voto atrasado recusado, normal numa reconexão: ${res && res.message})`,
+            );
+          } else {
+            fail(
+              `${label}: votos da rodada ${data.round} recusados (${res && res.message})`,
+            );
+          }
+        },
+      );
     }, randomDelay());
   };
 
@@ -181,17 +221,30 @@ function createClient(label, index) {
     });
     if (isBot && !c.joined) {
       c.joined = true;
-      socket.emit("join-game", { name: label, avatar: AVATARS[index % AVATARS.length] });
+      socket.emit("join-game", {
+        name: label,
+        avatar: AVATARS[index % AVATARS.length],
+      });
+    }
+    // A TV de verdade pede o estado ao reconectar (tv-sync). Só simulamos isso na reconexão.
+    if (!isBot && c.reloaded && !c.tvSyncSent) {
+      c.tvSyncSent = true;
+      console.log(`[${elapsed()}] TV reconectou e pediu tv-sync`);
+      socket.emit("tv-sync");
     }
     if (c.dropped) {
       c.reconnected = true;
-      console.log(`[${elapsed()}] ${label} voltou com NOVO id de conexão: ${socket.id}`);
+      console.log(
+        `[${elapsed()}] ${label} voltou com NOVO id de conexão: ${socket.id}`,
+      );
       // O celular de verdade faz o mesmo: apresenta o token guardado.
       if (c.token) socket.emit("rejoin", { token: c.token });
     }
   });
 
-  socket.on("error-message", (msg) => fail(`${label} recebeu erro do servidor: "${msg}"`));
+  socket.on("error-message", (msg) =>
+    fail(`${label} recebeu erro do servidor: "${msg}"`),
+  );
 
   // O servidor entrega a identidade e o token secreto assim que o jogador entra.
   socket.on("joined", (info) => {
@@ -199,7 +252,8 @@ function createClient(label, index) {
     c.originalPlayerId = info.playerId;
     c.token = info.token;
     // Só no cenário --drop-lobby (nos outros, o aviso "joined" pode chegar depois do início da partida).
-    if (DROP_MODE === "lobby" && c.isDropTarget && !c.dropped) dropConnection("no lobby, logo depois de entrar");
+    if (DROP_MODE === "lobby" && c.isDropTarget && !c.dropped)
+      dropConnection("no lobby, logo depois de entrar");
   });
 
   socket.on("rejoined", (snap) => {
@@ -209,13 +263,16 @@ function createClient(label, index) {
       `[${elapsed()}] ${label} reconhecido pelo servidor ` +
         `${c.sameIdentity ? "como o MESMO jogador" : "mas com id DIFERENTE"} (fase: ${snap.phase})`,
     );
-    if (snap.phase === "drawing" && !snap.hasSubmitted) submitDrawingLater(snap.drawing.round, true);
+    if (snap.phase === "drawing" && !snap.hasSubmitted)
+      submitDrawingLater(snap.drawing.round, true);
     if (snap.phase === "voting" && !snap.hasVoted) voteLater(snap.voting, true);
   });
 
   socket.on("rejoin-failed", () => {
     c.recognized = false;
-    console.log(`[${elapsed()}] ${label} NÃO foi reconhecido (rejoin recusado pelo servidor)`);
+    console.log(
+      `[${elapsed()}] ${label} NÃO foi reconhecido (rejoin recusado pelo servidor)`,
+    );
   });
 
   socket.on("update-lobby", (players) => {
@@ -226,7 +283,12 @@ function createClient(label, index) {
     record(`start-round ${data.round}`);
     if (!isBot || ignoring()) return;
 
-    if (DROP_MODE === "drawing" && c.isDropTarget && data.round === 2 && !c.dropped) {
+    if (
+      DROP_MODE === "drawing" &&
+      c.isDropTarget &&
+      data.round === 2 &&
+      !c.dropped
+    ) {
       dropConnection("na rodada de desenho 2");
       return;
     }
@@ -241,22 +303,54 @@ function createClient(label, index) {
       // Na queda durante o desenho, o bot que caiu pode ou não ter enviado o desenho da rodada 2.
       const expectedMin = DROP_MODE === "drawing" ? NUM_BOTS - 1 : NUM_BOTS;
       const withImage = data.cards.filter(
-        (card) => typeof card.imageData === "string" && card.imageData.startsWith("data:image"),
+        (card) =>
+          typeof card.imageData === "string" &&
+          card.imageData.startsWith("data:image"),
       ).length;
-      const bytes = data.cards.reduce((sum, card) => sum + card.imageData.length, 0);
+      const bytes = data.cards.reduce(
+        (sum, card) => sum + card.imageData.length,
+        0,
+      );
       console.log(
         `           votação ${data.round}: ${data.cards.length} desenhos, ` +
           `${withImage} com imagem, ~${(bytes / 1024).toFixed(0)} KB`,
       );
-      if (data.cards.length < expectedMin || data.cards.length > NUM_BOTS || withImage !== data.cards.length) {
-        fail(`TV recebeu votação ${data.round} incompleta (${withImage}/${NUM_BOTS} desenhos com imagem)`);
+      if (
+        data.cards.length < expectedMin ||
+        data.cards.length > NUM_BOTS ||
+        withImage !== data.cards.length
+      ) {
+        fail(
+          `TV recebeu votação ${data.round} incompleta (${withImage}/${NUM_BOTS} desenhos com imagem)`,
+        );
+      }
+
+      // Primeira votação recebida DEPOIS do tv-sync: é isso que o teste quer ver.
+      if (c.tvSyncSent && c.syncVotingRound === undefined) {
+        c.syncVotingRound = data.round;
+        c.syncCards = data.cards.length;
+      }
+
+      // Simula o F5 da TV no começo da votação 2.
+      if (TV_RELOAD && data.round === 2 && !c.reloaded) {
+        c.reloaded = true;
+        console.log(
+          `[${elapsed()}] TV PERDEU A CONEXÃO (simulando recarga) na votação 2`,
+        );
+        socket.disconnect();
+        setTimeout(() => socket.connect(), 1500);
       }
       return;
     }
 
     if (ignoring()) return;
 
-    if (DROP_MODE === "voting" && c.isDropTarget && data.round === 2 && !c.dropped) {
+    if (
+      DROP_MODE === "voting" &&
+      c.isDropTarget &&
+      data.round === 2 &&
+      !c.dropped
+    ) {
       dropConnection("na votação 2");
       return;
     }
@@ -266,7 +360,9 @@ function createClient(label, index) {
   socket.on("game-over", (leaderboard) => {
     record("game-over");
     c.leaderboard = leaderboard;
+    if (!isBot) c.podiumAt = Date.now();
     if (!isBot || ignoring()) return;
+    if (NO_RETURN) return; // não volta ao lobby: deixa o servidor fazer sozinho
 
     // O anfitrião volta ao lobby, o que também deixa o servidor limpo para o próximo teste.
     const active = c.players.filter((p) => !p.disconnected);
@@ -277,7 +373,10 @@ function createClient(label, index) {
 
   socket.on("back-to-lobby", () => {
     record("back-to-lobby");
-    const tvSawGameOver = clients.find((x) => !x.isBot).seq.includes("game-over");
+    if (!isBot && c.podiumAt) c.podiumMs = Date.now() - c.podiumAt;
+    const tvSawGameOver = clients
+      .find((x) => !x.isBot)
+      .seq.includes("game-over");
     if (!isBot && tvSawGameOver) setTimeout(finish, 500);
   });
 
@@ -295,14 +394,21 @@ function finish() {
   console.log("\n0) Transporte de rede usado por cada cliente");
   for (const c of clients) console.log(`   ${c.label}: ${c.transport || "?"}`);
   if (clients.some((c) => c.transport === "polling")) {
-    console.log('   ⚠️  Algum cliente ficou em "polling": a rede pode estar bloqueando WebSocket (mais frágil).');
+    console.log(
+      '   ⚠️  Algum cliente ficou em "polling": a rede pode estar bloqueando WebSocket (mais frágil).',
+    );
   }
 
   console.log("\n1) Todos receberam os eventos na ordem certa?");
   const skipDropper = DROP_MODE === "drawing" || DROP_MODE === "voting";
   for (const c of clients) {
     if (skipDropper && c.dropped) continue; // o bot que caiu perdeu eventos enquanto estava fora
-    if (JSON.stringify(c.seq) === JSON.stringify(EXPECTED)) {
+    // Na TV recarregada, o tv-sync repete o evento da fase atual: ignora repetições seguidas.
+    const seqToCheck =
+      !c.isBot && TV_RELOAD
+        ? c.seq.filter((e, i) => i === 0 || e !== c.seq[i - 1])
+        : c.seq;
+    if (JSON.stringify(seqToCheck) === JSON.stringify(EXPECTED)) {
       ok(`${c.label}: ${c.seq.length} eventos, ordem correta`);
     } else {
       const missing = EXPECTED.filter((e) => !c.seq.includes(e));
@@ -318,9 +424,13 @@ function finish() {
   if (!tv.leaderboard) {
     fail("TV não recebeu o pódio (game-over)");
   } else {
-    console.log("   " + tv.leaderboard.map((p) => `${p.name}: ${p.score}`).join(" | "));
+    console.log(
+      "   " + tv.leaderboard.map((p) => `${p.name}: ${p.score}`).join(" | "),
+    );
     if (tv.leaderboard.length !== NUM_BOTS) {
-      fail(`Pódio tem ${tv.leaderboard.length} jogadores, esperado ${NUM_BOTS}`);
+      fail(
+        `Pódio tem ${tv.leaderboard.length} jogadores, esperado ${NUM_BOTS}`,
+      );
     } else {
       ok(`Pódio com ${NUM_BOTS} jogadores`);
     }
@@ -328,35 +438,49 @@ function finish() {
     // Só confere a soma quando todos votaram em todas as rodadas.
     if (!DROP || DROP_MODE === "lobby") {
       // Cada votante distribui 50+30+20 (ou menos, se houver menos de 3 desenhos de outros).
-      const perVoter = [50, 30, 20].slice(0, Math.min(3, NUM_BOTS - 1)).reduce((a, b) => a + b, 0);
+      const perVoter = [50, 30, 20]
+        .slice(0, Math.min(3, NUM_BOTS - 1))
+        .reduce((a, b) => a + b, 0);
       const expectedTotal = NUM_BOTS * 6 * perVoter;
       const total = tv.leaderboard.reduce((sum, p) => sum + p.score, 0);
-      if (total === expectedTotal) ok(`Soma dos pontos = ${total} (esperado ${expectedTotal})`);
+      if (total === expectedTotal)
+        ok(`Soma dos pontos = ${total} (esperado ${expectedTotal})`);
       else fail(`Soma dos pontos = ${total}, esperado ${expectedTotal}`);
     }
   }
 
   if (DROP) {
     const dropper = clients.find((c) => c.dropped);
-    console.log(`\n3) Cenário de queda (--drop${DROP_MODE === "drawing" ? "" : "-" + DROP_MODE})`);
+    console.log(
+      `\n3) Cenário de queda (--drop${DROP_MODE === "drawing" ? "" : "-" + DROP_MODE})`,
+    );
     if (!dropper) {
       fail("Nenhum bot chegou a perder a conexão (o cenário não aconteceu)");
     } else {
-      console.log(`   ${dropper.label} perdeu a conexão (${DROP_MODE}) e reconectou com outro id de conexão.`);
+      console.log(
+        `   ${dropper.label} perdeu a conexão (${DROP_MODE}) e reconectou com outro id de conexão.`,
+      );
 
       if (dropper.recognized === true) {
         ok(`${dropper.label} foi reconhecido pelo servidor ao voltar`);
-        if (dropper.sameIdentity) ok("Mesma identidade de jogador antes e depois da queda");
+        if (dropper.sameIdentity)
+          ok("Mesma identidade de jogador antes e depois da queda");
         else fail("O servidor devolveu um id de jogador diferente do original");
       } else {
-        fail(`${dropper.label} NÃO foi reconhecido ao voltar (servidor sem reentrada ou token recusado)`);
+        fail(
+          `${dropper.label} NÃO foi reconhecido ao voltar (servidor sem reentrada ou token recusado)`,
+        );
       }
 
       if (tv.leaderboard) {
         const ids = tv.leaderboard.map((p) => p.id);
-        if (new Set(ids).size === ids.length) ok("Nenhum jogador duplicado no pódio");
+        if (new Set(ids).size === ids.length)
+          ok("Nenhum jogador duplicado no pódio");
         else fail("Há jogadores duplicados no pódio");
-        if (dropper.originalPlayerId && ids.includes(dropper.originalPlayerId)) {
+        if (
+          dropper.originalPlayerId &&
+          ids.includes(dropper.originalPlayerId)
+        ) {
           ok(`${dropper.label} aparece no pódio com o id original`);
         } else {
           fail(`${dropper.label} não aparece no pódio com o id original`);
@@ -364,7 +488,36 @@ function finish() {
       }
     }
   }
+  if (TV_RELOAD) {
+    console.log("\n4) Recarga da TV (tv-sync)");
+    if (!tv.tvSyncSent) {
+      fail("A TV não chegou a recarregar (o cenário não aconteceu)");
+    } else if (tv.syncVotingRound === 2) {
+      ok(
+        `Depois do tv-sync a TV recebeu a votação 2 (${tv.syncCards} desenhos)`,
+      );
+    } else {
+      fail(
+        `Depois do tv-sync a TV recebeu a votação ${tv.syncVotingRound}, esperado 2`,
+      );
+    }
+  }
 
+  if (NO_RETURN) {
+    console.log("\n5) Retorno automático ao lobby");
+    if (!tv.podiumMs) {
+      fail("Não consegui medir o tempo do pódio");
+    } else if (tv.podiumMs >= 10000 && tv.podiumMs <= 13500) {
+      ok(
+        `Pódio durou ${(tv.podiumMs / 1000).toFixed(1)}s e o servidor voltou ao lobby sozinho`,
+      );
+    } else {
+      fail(
+        `Pódio durou ${(tv.podiumMs / 1000).toFixed(1)}s (esperado entre 10s e 13,5s)`,
+      );
+    }
+  }
+  
   if (failures.length > 0) {
     console.log(`\n❌ ${failures.length} PROBLEMA(S) ENCONTRADO(S)`);
   } else {
@@ -376,16 +529,24 @@ function finish() {
 
 const globalTimer = setTimeout(() => {
   if (finished) return;
-  console.log(`\n⏰ Tempo esgotado (${TIMEOUT_MS / 1000}s). Estado de cada cliente:`);
+  console.log(
+    `\n⏰ Tempo esgotado (${TIMEOUT_MS / 1000}s). Estado de cada cliente:`,
+  );
   for (const c of clients) {
     console.log(
       `   ${c.label}: transporte=${c.transport || "?"} | lobby=${c.players.length} jogadores | eventos=[${c.seq.join(", ")}]`,
     );
   }
   console.log(`   start-game foi enviado? ${startRequested ? "sim" : "não"}`);
-  console.log("   Dicas: se nenhum cliente conectou, confira a URL. Se o servidor já tinha jogadores ou uma partida");
-  console.log("   em andamento, reinicie-o (local: Ctrl+C e inicie de novo; Render: aguarde ~1 min sem jogadores).");
-  console.log("   No lobby, jogadores que saíram ocupam a vaga por ~30 s: espere antes de repetir o teste.");
+  console.log(
+    "   Dicas: se nenhum cliente conectou, confira a URL. Se o servidor já tinha jogadores ou uma partida",
+  );
+  console.log(
+    "   em andamento, reinicie-o (local: Ctrl+C e inicie de novo; Render: aguarde ~1 min sem jogadores).",
+  );
+  console.log(
+    "   No lobby, jogadores que saíram ocupam a vaga por ~30 s: espere antes de repetir o teste.",
+  );
   process.exit(1);
 }, TIMEOUT_MS);
 
@@ -409,7 +570,10 @@ const starter = setInterval(() => {
     if (!dropper || dropper.recognized !== true) return;
   }
   const host = clients.find(
-    (x) => x.isBot && x.socket.connected && (x.playerId || x.socket.id) === active[0].id,
+    (x) =>
+      x.isBot &&
+      x.socket.connected &&
+      (x.playerId || x.socket.id) === active[0].id,
   );
   if (!host) return;
 
@@ -420,7 +584,9 @@ const starter = setInterval(() => {
     const others = clients.filter((x) => x.isBot && x !== host);
     others[others.length - 1].isDropTarget = true;
   }
-  console.log(`[${elapsed()}] ${host.label} entrou primeiro e é o anfitrião; vai iniciar a partida`);
+  console.log(
+    `[${elapsed()}] ${host.label} entrou primeiro e é o anfitrião; vai iniciar a partida`,
+  );
   host.socket.emit("start-game");
 }, 300);
 

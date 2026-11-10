@@ -58,6 +58,7 @@ window.addEventListener("online", resyncTvNow);
 
 const controlUrl = window.location.origin + "/controle.html";
 let isGameStarted = false;
+let isPodium = false;
 
 // QR CODE DA SALA
 document.getElementById("room-url").innerText = controlUrl;
@@ -142,6 +143,7 @@ socket.on("update-lobby", (players) => {
 
 // FASE DE DESENHO
 socket.on("start-round", (data) => {
+  isPodium = false;
   isGameStarted = true;
   exibirTelaTV("game-screen");
 
@@ -174,6 +176,7 @@ socket.on("drawing-progress", (data) => {
 
 // TEMPORIZADOR VISUAL DA TV
 socket.on("timer-tick", (timeLeft) => {
+  if (isPodium) return;
   let tvTimer = document.getElementById("tv-timer-display");
 
   if (!tvTimer) {
@@ -208,6 +211,7 @@ socket.on("timer-tick", (timeLeft) => {
 
 // FASE DE VOTAÇÃO (APRESENTAÇÃO DOS DESENHOS)
 socket.on("start-voting-round", (data) => {
+  isPodium = false;
   isGameStarted = true;
   exibirTelaTV("presentation-screen");
 
@@ -297,6 +301,7 @@ socket.on("start-voting-round", (data) => {
 // FIM DE JOGO (PÓDIO FINAL)
 socket.on("game-over", (leaderboard) => {
   isGameStarted = true;
+  isPodium = true;
 
   const tvTimer = document.getElementById("tv-timer-display");
   if (tvTimer) tvTimer.style.display = "none";
@@ -369,6 +374,7 @@ function createPillar(player, rank, type) {
 
 // RETORNO AO LOBBY
 socket.on("back-to-lobby", (players) => {
+  isPodium = false;
   isGameStarted = false;
 
   const tvTimer = document.getElementById("tv-timer-display");
