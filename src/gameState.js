@@ -39,6 +39,7 @@ class GameState {
     this.matchThemes = [];
     this.drawings = {};
     this.votes = {};
+    this.cardOrder = {};
     // token secreto -> id do jogador. Fica só no servidor (nunca vai para a TV nem para outros celulares).
     this.tokens = new Map();
   }
@@ -51,6 +52,7 @@ class GameState {
     this.matchThemes = [];
     this.drawings = {};
     this.votes = {};
+    this.cardOrder = {};
 
     // Remove jogadores que caíram durante a partida e reseta os ativos
     this.players = this.players.filter((p) => !p.disconnected);
@@ -70,6 +72,7 @@ class GameState {
     this.matchThemes = [];
     this.drawings = {};
     this.votes = {};
+    this.cardOrder = {};
     this.tokens.clear();
   }
 
@@ -116,7 +119,7 @@ class GameState {
     // Conta apenas jogadores que continuam conectados.
     const activePlayers = this.players.filter((player) => !player.disconnected);
 
-    // O jogo exige pelo menos 3 jogadores ativos.
+    // O jogo exige pelo menos 2 jogadores ativos.
     if (activePlayers.length < 2) {
       return null;
     }
@@ -131,6 +134,7 @@ class GameState {
     this.matchThemes = getRandomThemes(6);
     this.drawings = {};
     this.votes = {};
+    this.cardOrder = {};
 
     // Reinicia a pontuação dos jogadores participantes.
     this.players.forEach((player) => {
@@ -275,7 +279,7 @@ class GameState {
     // Reconstrói o mapeamento oficial dos desenhos desta rodada.
     const roundDrawings = this.drawings[roundNum] || {};
 
-    const cards = Object.keys(roundDrawings).map((artistId, index) => ({
+    const cards = this.getCardOrder(roundNum).map((artistId, index) => ({
       number: index + 1,
       artistId,
     }));
@@ -351,9 +355,24 @@ class GameState {
     );
   }
 
+  // Ordem embaralhada dos artistas de uma rodada. Criada uma única vez e
+  // reutilizada por votação, reentrada e pontuação, para os números não mudarem.
+  getCardOrder(roundNum) {
+    if (!this.cardOrder[roundNum]) {
+      const artistIds = Object.keys(this.drawings[roundNum] || {});
+      for (let i = artistIds.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [artistIds[i], artistIds[j]] = [artistIds[j], artistIds[i]];
+      }
+      this.cardOrder[roundNum] = artistIds;
+    }
+    return this.cardOrder[roundNum];
+  }
+
   getVotingCards(roundNum) {
     this.phase = "voting";
     this.currentVotingRound = roundNum;
+    this.getCardOrder(roundNum); // fixa a ordem embaralhada no início da votação
     return this.buildVotingCards(roundNum);
   }
 
@@ -362,7 +381,7 @@ class GameState {
     const theme = this.matchThemes[roundNum - 1];
     const roundDrawings = this.drawings[roundNum] || {};
 
-    const cards = Object.keys(roundDrawings).map((playerId, index) => {
+    const cards = this.getCardOrder(roundNum).map((playerId, index) => {
       return {
         number: index + 1,
         color: COLOR_PALETTE[index % COLOR_PALETTE.length],
@@ -435,7 +454,7 @@ class GameState {
       const roundVotes = this.votes[r] || {};
 
       const artistMap = {};
-      Object.keys(roundDrawings).forEach((artistId, index) => {
+      this.getCardOrder(r).forEach((artistId, index) => {
         artistMap[index + 1] = artistId;
       });
 
