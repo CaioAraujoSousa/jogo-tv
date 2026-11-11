@@ -47,15 +47,25 @@ const NO_RETURN = args.includes("--no-return"); // o anfitrião NÃO volta ao lo
 const LAST_LEAVES = args.includes("--last-leaves"); // todos saem de vez: a sala deve ser limpa
 const LAST_RETURN = args.includes("--last-return"); // todos caem juntos e voltam: a sala NÃO pode ser limpa
 const EMPTY_MS = parseInt(getOpt("empty-ms", "30000"), 10); // precisa ser igual ao EMPTY_ROOM_MS do servidor
+const HOST_DROPS = args.includes("--host-drops"); // o anfitrião sai de vez no lobby: o próximo deve assumir
+const PLAYING = HOST_DROPS ? NUM_BOTS - 1 : NUM_BOTS; // quantos jogadores realmente jogam a partida
+const REJOIN_MANY = args.includes("--rejoin-many"); // o mesmo bot cai e volta 3 vezes seguidas
 
 const DELAY_S = Math.min(
-  parseFloat(getOpt("delay", DROP ? "1" : TV_RELOAD ? "4" : "0")) || 0,
+  parseFloat(
+    getOpt("delay", DROP ? "1" : TV_RELOAD ? "4" : REJOIN_MANY ? "2" : "0"),
+  ) || 0,
   25,
 );
 const TIMEOUT_MS = 120_000;
 
 if (NUM_BOTS < 2 || NUM_BOTS > 8) {
   console.error("Use entre 2 e 8 bots.");
+  process.exit(1);
+}
+
+if (HOST_DROPS && NUM_BOTS < 3) {
+  console.error("--host-drops precisa de pelo menos 3 bots.");
   process.exit(1);
 }
 
@@ -88,6 +98,8 @@ const failures = [];
 let finished = false;
 let startRequested = false;
 let lastLeftAt = 0;
+let hostDropped = false;
+let newHostLabel = null;
 
 const ok = (msg) => console.log(`   ✅ ${msg}`);
 const fail = (msg) => {
@@ -157,6 +169,13 @@ function createClient(label, index) {
     );
     socket.disconnect();
     setTimeout(() => socket.connect(), 1500);
+  };
+
+  // Usada só no --rejoin-many: conta as quedas e zera o "reconhecido" a cada uma.
+  const dropRepeatedly = (when) => {
+    c.dropCount = (c.dropCount || 0) + 1;
+    c.recognized = null;
+    dropConnection(`${when} (queda ${c.dropCount} de 3)`);
   };
 
   // "late" = ação disparada pelo retrato da reconexão; pode ser recusada se a fase já passou.
@@ -251,7 +270,7 @@ function createClient(label, index) {
   );
 
   // O servidor entrega a identidade e o token secreto assim que o jogador entra.
-    socket.on("joined", (info) => {
+  socket.on("joined", (info) => {
     c.playerId = info.playerId;
     c.originalPlayerId = info.playerId;
     c.token = info.token;
@@ -263,10 +282,19 @@ function createClient(label, index) {
   socket.on("rejoined", (snap) => {
     c.recognized = true;
     c.sameIdentity = snap.playerId === c.originalPlayerId;
+    c.rejoinCount = (c.rejoinCount || 0) + 1;
+    if (!c.sameIdentity) c.identityBroken = true;
     console.log(
       `[${elapsed()}] ${label} reconhecido pelo servidor ` +
         `${c.sameIdentity ? "como o MESMO jogador" : "mas com id DIFERENTE"} (fase: ${snap.phase})`,
     );
+
+    // --rejoin-many: cai de novo logo depois de ser reconhecido, até completar 3 quedas.
+    if (REJOIN_MANY && c.isDropTarget && c.dropCount < 3) {
+      setTimeout(() => dropRepeatedly("logo depois de voltar"), 300);
+      return;
+    }
+
     if (snap.phase === "drawing" && !snap.hasSubmitted)
       submitDrawingLater(snap.drawing.round, true);
     if (snap.phase === "voting" && !snap.hasVoted) voteLater(snap.voting, true);
@@ -283,7 +311,7 @@ function createClient(label, index) {
     c.players = players;
   });
 
-    socket.on("start-round", (data) => {
+  socket.on("start-round", (data) => {
     record(`start-round ${data.round}`);
     if (!isBot || ignoring()) return;
 
@@ -296,6 +324,11 @@ function createClient(label, index) {
       } else {
         dropConnection("na rodada de desenho 2 (todos caem juntos)");
       }
+      return;
+    }
+
+    if (REJOIN_MANY && c.isDropTarget && data.round === 2 && !c.dropped) {
+      dropRepeatedly("na rodada de desenho 2");
       return;
     }
 
@@ -317,7 +350,8 @@ function createClient(label, index) {
     if (!isBot) {
       // A TV confere se recebeu todos os desenhos, com imagem.
       // Na queda durante o desenho, o bot que caiu pode ou não ter enviado o desenho da rodada 2.
-      const expectedMin = DROP_MODE === "drawing" ? NUM_BOTS - 1 : NUM_BOTS;
+      const expectedMin =
+        DROP_MODE === "drawing" || REJOIN_MANY ? PLAYING - 1 : PLAYING;
       const withImage = data.cards.filter(
         (card) =>
           typeof card.imageData === "string" &&
@@ -333,11 +367,11 @@ function createClient(label, index) {
       );
       if (
         data.cards.length < expectedMin ||
-        data.cards.length > NUM_BOTS ||
+        data.cards.length > PLAYING ||
         withImage !== data.cards.length
       ) {
         fail(
-          `TV recebeu votação ${data.round} incompleta (${withImage}/${NUM_BOTS} desenhos com imagem)`,
+          `TV recebeu votação ${data.round} incompleta (${withImage}/${PLAYING} desenhos com imagem)`,
         );
       }
 
@@ -423,7 +457,11 @@ function finish() {
 
   console.log("\n1) Todos receberam os eventos na ordem certa?");
   const skipDropper =
-    DROP_MODE === "drawing" || DROP_MODE === "voting" || LAST_RETURN;
+    DROP_MODE === "drawing" ||
+    DROP_MODE === "voting" ||
+    LAST_RETURN ||
+    HOST_DROPS ||
+    REJOIN_MANY;
   for (const c of clients) {
     if (skipDropper && c.dropped) continue; // o bot que caiu perdeu eventos enquanto estava fora
     // Na TV recarregada, o tv-sync repete o evento da fase atual: ignora repetições seguidas.
@@ -450,21 +488,19 @@ function finish() {
     console.log(
       "   " + tv.leaderboard.map((p) => `${p.name}: ${p.score}`).join(" | "),
     );
-    if (tv.leaderboard.length !== NUM_BOTS) {
-      fail(
-        `Pódio tem ${tv.leaderboard.length} jogadores, esperado ${NUM_BOTS}`,
-      );
+    if (tv.leaderboard.length !== PLAYING) {
+      fail(`Pódio tem ${tv.leaderboard.length} jogadores, esperado ${PLAYING}`);
     } else {
-      ok(`Pódio com ${NUM_BOTS} jogadores`);
+      ok(`Pódio com ${PLAYING} jogadores`);
     }
 
     // Só confere a soma quando todos votaram em todas as rodadas.
-    if (!DROP || DROP_MODE === "lobby") {
+    if ((!DROP || DROP_MODE === "lobby") && !REJOIN_MANY) {
       // Cada votante distribui 50+30+20 (ou menos, se houver menos de 3 desenhos de outros).
       const perVoter = [50, 30, 20]
-        .slice(0, Math.min(3, NUM_BOTS - 1))
+        .slice(0, Math.min(3, PLAYING - 1))
         .reduce((a, b) => a + b, 0);
-      const expectedTotal = NUM_BOTS * 6 * perVoter;
+      const expectedTotal = PLAYING * 6 * perVoter;
       const total = tv.leaderboard.reduce((sum, p) => sum + p.score, 0);
       if (total === expectedTotal)
         ok(`Soma dos pontos = ${total} (esperado ${expectedTotal})`);
@@ -558,6 +594,59 @@ function finish() {
     );
   }
 
+  if (HOST_DROPS) {
+    console.log("\n7) Queda do anfitrião no lobby (--host-drops)");
+    const oldHost = clients.find((c) => c.isBot && c.leftForever);
+    if (!oldHost) {
+      fail("O anfitrião não chegou a sair (o cenário não aconteceu)");
+    } else {
+      if (newHostLabel && newHostLabel !== oldHost.label) {
+        ok(
+          `${newHostLabel} assumiu como anfitrião e iniciou a partida (${oldHost.label} tinha saído)`,
+        );
+      } else {
+        fail("Outro jogador não assumiu como anfitrião");
+      }
+      const ids = tv.leaderboard ? tv.leaderboard.map((p) => p.id) : [];
+      if (!ids.includes(oldHost.originalPlayerId))
+        ok(`${oldHost.label} (ausente) não entrou na partida`);
+      else
+        fail(`${oldHost.label} apareceu no pódio mesmo tendo saído no lobby`);
+    }
+  }
+
+  if (REJOIN_MANY) {
+    console.log("\n8) Quedas repetidas do mesmo jogador (--rejoin-many)");
+    const target = clients.find((c) => c.isBot && c.isDropTarget);
+    if (!target || !target.dropCount) {
+      fail("Nenhum bot caiu (o cenário não aconteceu)");
+    } else {
+      if (target.dropCount === 3) ok("O bot caiu 3 vezes seguidas");
+      else fail(`O bot caiu ${target.dropCount} vez(es), esperado 3`);
+
+      if (target.rejoinCount === 3 && !target.identityBroken) {
+        ok("Foi reconhecido nas 3 voltas, sempre com a mesma identidade");
+      } else {
+        fail(
+          `Reconhecido ${target.rejoinCount || 0} vez(es) (esperado 3)` +
+            (target.identityBroken
+              ? " e com id diferente em alguma volta"
+              : ""),
+        );
+      }
+
+      if (tv.leaderboard) {
+        const ids = tv.leaderboard.map((p) => p.id);
+        if (new Set(ids).size === ids.length)
+          ok("Nenhum jogador duplicado no pódio");
+        else fail("Há jogadores duplicados no pódio");
+        if (ids.includes(target.originalPlayerId))
+          ok(`${target.label} aparece no pódio com o id original`);
+        else fail(`${target.label} não aparece no pódio com o id original`);
+      }
+    }
+  }
+
   if (failures.length > 0) {
     console.log(`\n❌ ${failures.length} PROBLEMA(S) ENCONTRADO(S)`);
   } else {
@@ -641,7 +730,28 @@ const starter = setInterval(() => {
   const tvClient = clients.find((x) => !x.isBot);
   if (!tvClient || !tvClient.everConnected) return;
   const active = tvClient.players.filter((p) => !p.disconnected);
-  if (active.length !== NUM_BOTS) return;
+
+  // --host-drops: quando todos entraram, o anfitrião sai de vez e esperamos o próximo assumir.
+  if (HOST_DROPS && !hostDropped) {
+    if (active.length !== NUM_BOTS) return;
+    const oldHost = clients.find(
+      (x) =>
+        x.isBot &&
+        x.socket.connected &&
+        (x.playerId || x.socket.id) === active[0].id,
+    );
+    if (!oldHost) return;
+    hostDropped = true;
+    oldHost.dropped = true;
+    oldHost.leftForever = true;
+    console.log(
+      `[${elapsed()}] ${oldHost.label} (anfitrião) SAIU DE VEZ no lobby`,
+    );
+    oldHost.socket.disconnect();
+    return;
+  }
+
+  if (active.length !== PLAYING) return;
   // No --drop-lobby, só começa depois que o bot caiu e foi reconhecido de volta (a queda tem de acontecer NO lobby).
   if (DROP_MODE === "lobby") {
     const dropper = clients.find((x) => x.isDropTarget);
@@ -657,7 +767,8 @@ const starter = setInterval(() => {
 
   clearInterval(starter);
   startRequested = true;
-  if (DROP_MODE === "drawing" || DROP_MODE === "voting") {
+  newHostLabel = host.label;
+  if (DROP_MODE === "drawing" || DROP_MODE === "voting" || REJOIN_MANY) {
     // Nestes cenários, quem cai é um bot que NÃO é o anfitrião.
     const others = clients.filter((x) => x.isBot && x !== host);
     others[others.length - 1].isDropTarget = true;
