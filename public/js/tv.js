@@ -176,7 +176,22 @@ socket.on("drawing-progress", (data) => {
 
 // TEMPORIZADOR VISUAL DA TV
 socket.on("timer-tick", (timeLeft) => {
-  if (isPodium) return;
+  if (isPodium) {
+    const container = document.getElementById("presentation-container");
+    if (!container) return;
+
+    let msg = document.getElementById("podium-return-msg");
+    if (!msg) {
+      msg = document.createElement("div");
+      msg.id = "podium-return-msg";
+      msg.style.marginTop = "25px";
+      msg.style.fontSize = "1.4rem";
+      msg.style.color = "#94a3b8";
+      container.appendChild(msg);
+    }
+    msg.textContent = "Voltando ao lobby em " + Math.max(timeLeft, 0) + "s";
+    return;
+  }
   let tvTimer = document.getElementById("tv-timer-display");
 
   if (!tvTimer) {

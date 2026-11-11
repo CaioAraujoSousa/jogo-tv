@@ -489,7 +489,14 @@ socket.on("start-round", (data) => {
 
 // OUVINTE DO TEMPORIZADOR COM AUTO-SUBMIT
 socket.on("timer-tick", (timeLeft) => {
-  if (isGameOver) return;
+    if (isGameOver) {
+    const returnEl = document.getElementById("return-countdown");
+    if (returnEl) {
+      returnEl.textContent =
+        "Voltando ao lobby em " + Math.max(timeLeft, 0) + "s";
+    }
+    return;
+  }
   let timerEl = document.getElementById("game-timer");
 
   if (!timerEl) {
@@ -590,9 +597,16 @@ function showGameOver(leaderboard) {
   p2.style.color = "#94a3b8";
   p2.textContent = "Olhe para a TV para ver o pódio completo!";
 
+    const p3 = document.createElement("p");
+  p3.id = "return-countdown";
+  p3.style.color = "#94a3b8";
+  p3.style.fontSize = "0.95rem";
+  p3.textContent = "Voltando ao lobby em instantes…";
+
   card.appendChild(h2);
   card.appendChild(p1);
   card.appendChild(p2);
+  card.appendChild(p3);
 
   if (isHost) {
     const restartBtn = document.createElement("button");
