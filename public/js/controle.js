@@ -489,14 +489,6 @@ socket.on("start-round", (data) => {
 
 // OUVINTE DO TEMPORIZADOR COM AUTO-SUBMIT
 socket.on("timer-tick", (timeLeft) => {
-    if (isGameOver) {
-    const returnEl = document.getElementById("return-countdown");
-    if (returnEl) {
-      returnEl.textContent =
-        "Voltando ao lobby em " + Math.max(timeLeft, 0) + "s";
-    }
-    return;
-  }
   let timerEl = document.getElementById("game-timer");
 
   if (!timerEl) {
@@ -518,7 +510,9 @@ socket.on("timer-tick", (timeLeft) => {
   }
 
   timerEl.style.display = "block";
-  timerEl.textContent = "⏱️ " + timeLeft + "s";
+  timerEl.textContent = isGameOver
+    ? "🏠 Voltando ao lobby em " + Math.max(timeLeft, 0) + "s"
+    : "⏱️ " + timeLeft + "s";
 
   if (timeLeft <= 10) {
     timerEl.style.color = "#ef4444";
@@ -564,9 +558,6 @@ function showGameOver(leaderboard) {
   isGameOver = true;
   exibirTela("voting-screen");
 
-  const timerEl = document.getElementById("game-timer");
-  if (timerEl) timerEl.style.display = "none";
-
   const votingScreen = document.getElementById("voting-screen");
   votingScreen.innerHTML = "";
 
@@ -596,12 +587,6 @@ function showGameOver(leaderboard) {
   const p2 = document.createElement("p");
   p2.style.color = "#94a3b8";
   p2.textContent = "Olhe para a TV para ver o pódio completo!";
-
-    const p3 = document.createElement("p");
-  p3.id = "return-countdown";
-  p3.style.color = "#94a3b8";
-  p3.style.fontSize = "0.95rem";
-  p3.textContent = "Voltando ao lobby em instantes…";
 
   card.appendChild(h2);
   card.appendChild(p1);
