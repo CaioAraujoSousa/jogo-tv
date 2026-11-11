@@ -489,6 +489,7 @@ socket.on("start-round", (data) => {
 
 // OUVINTE DO TEMPORIZADOR COM AUTO-SUBMIT
 socket.on("timer-tick", (timeLeft) => {
+  if (isGameOver) return;
   let timerEl = document.getElementById("game-timer");
 
   if (!timerEl) {
