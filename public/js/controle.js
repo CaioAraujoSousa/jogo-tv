@@ -591,7 +591,6 @@ function showGameOver(leaderboard) {
   card.appendChild(h2);
   card.appendChild(p1);
   card.appendChild(p2);
-  card.appendChild(p3);
 
   if (isHost) {
     const restartBtn = document.createElement("button");

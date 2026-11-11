@@ -89,7 +89,9 @@ function scheduleLobbyRemoval(playerId) {
 
     gameState.removePlayer(playerId);
     io.emit("update-lobby", gameState.players);
-    console.log(`Jogador ${player.name} removido do lobby (ausente por muito tempo).`);
+    console.log(
+      `Jogador ${player.name} removido do lobby (ausente por muito tempo).`,
+    );
   }, LOBBY_GRACE_MS);
 
   pendingRemovals.set(playerId, timeout);
@@ -263,6 +265,18 @@ io.on("connection", (socket) => {
 
     if (nameAlreadyUsed) {
       socket.emit("error-message", "Este nome já está em uso. Escolha outro!");
+      return;
+    }
+
+    const avatarAlreadyUsed = gameState.players.some(
+      (player) => !player.disconnected && player.avatar === avatar,
+    );
+
+    if (avatarAlreadyUsed) {
+      socket.emit(
+        "error-message",
+        "Este avatar já está em uso. Escolha outro!",
+      );
       return;
     }
 
@@ -578,7 +592,9 @@ io.on("connection", (socket) => {
 
     // Conexão antiga de um jogador que já voltou por outra conexão: ignora.
     if (playerSockets.get(playerId) !== socket.id) {
-      console.log("Conexão antiga ignorada (o jogador já voltou por outra conexão).");
+      console.log(
+        "Conexão antiga ignorada (o jogador já voltou por outra conexão).",
+      );
       return;
     }
     playerSockets.delete(playerId);
