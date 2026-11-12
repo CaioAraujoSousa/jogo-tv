@@ -9,9 +9,9 @@ export function initCanvas(
 
   // Estado das Ferramentas: 'brush' | 'bucket' | 'eraser'
   let currentColor = "#0f172a";
-  let currentLineWidth = 2; // Espessura inicial (varia de 2 a 26)
-  const MIN_SIZE = 2;
+  const MIN_SIZE = 1.5;
   const MAX_SIZE = 26;
+  let currentLineWidth = MIN_SIZE; // Já começa no mais fino possível
   let activeTool = "brush";
 
   // Histórico de traços
@@ -335,13 +335,13 @@ export function initCanvas(
     // Atualiza a posição da bolinha e o tamanho do ícone no botão
     function updateSizeUI() {
       const ratio = (currentLineWidth - MIN_SIZE) / (MAX_SIZE - MIN_SIZE);
-      // Topo (0%) = Grosso (ratio 1) | Base (100%) = Fino (ratio 0)
-      const topPercent = (1 - ratio) * 100;
+      // Topo (5%) = Grosso (ratio 1) | Base (95%) = Fino (ratio 0) -> crava nas pontas do SVG (6/120 e 114/120)
+      const topPercent = 5 + (1 - ratio) * 90;
       sliderThumb.style.top = `${topPercent}%`;
 
-      // Bolinha interna do botão principal (escala visual de 4px a 18px)
+      // Bolinha interna do botão principal (escala visual de 3px a 18px)
       const visualDot = Math.max(
-        4,
+        3,
         Math.min(18, Math.round(currentLineWidth * 0.7)),
       );
       sizePreviewDot.style.width = `${visualDot}px`;
@@ -355,7 +355,7 @@ export function initCanvas(
 
     function setSizeFromPointer(clientY) {
       const rect = sliderTrack.getBoundingClientRect();
-      const pad = 8; // Margem interna das extremidades
+      const pad = rect.height * 0.05; // 5% de margem superior e inferior igual ao SVG
       const trackHeight = rect.height - pad * 2;
       const relY = Math.max(
         0,

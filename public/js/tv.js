@@ -1,5 +1,7 @@
+import { sound } from "./modules/soundEngine.js?v=2";
+
 const socket = io();
-import { sound } from "./modules/soundEngine.js?v=1";
+
 function setTvConnectionBanner(text) {
   let banner = document.getElementById("tv-conn-banner");
 
@@ -135,10 +137,10 @@ renderSeats([]);
 
 // ATUALIZAÇÃO DO LOBBY
 socket.on("update-lobby", (players) => {
-  sound.playMusic("lobby");
   renderSeats(players);
 
   if (!isGameStarted) {
+    sound.playMusic("lobby");
     exibirTelaTV("lobby-screen");
   }
 });
@@ -198,6 +200,7 @@ socket.on("timer-tick", (timeLeft) => {
     msg.textContent = "Voltando ao lobby em " + Math.max(timeLeft, 0) + "s";
     return;
   }
+
   let tvTimer = document.getElementById("tv-timer-display");
 
   if (!tvTimer) {
@@ -396,6 +399,7 @@ socket.on("reveal-voting-round", (data) => {
       masterpieceBadge.textContent = "👑 Obra de arte!";
       cardDiv.appendChild(masterpieceBadge);
     }
+
     // Cabeçalho com Artista e Pontos Ganhos
     const artistHeader = document.createElement("div");
     artistHeader.style.display = "flex";
@@ -533,7 +537,15 @@ socket.on("game-over", (leaderboard) => {
     restPlayers.forEach((r) => {
       const row = document.createElement("div");
       row.className = "rest-row";
-      row.textContent = `${r.position}º ${r.player.avatar} ${r.player.name} - ${r.player.score} pts`;
+
+      const leftSpan = document.createElement("span");
+      leftSpan.textContent = `${r.position}º ${r.player.avatar} ${r.player.name}`;
+
+      const rightSpan = document.createElement("span");
+      rightSpan.textContent = `${r.player.score} pts`;
+
+      row.appendChild(leftSpan);
+      row.appendChild(rightSpan);
       restList.appendChild(row);
     });
     container.appendChild(restList);

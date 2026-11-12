@@ -1,5 +1,5 @@
 import { initCanvas } from "./modules/canvasEngine.js?v=6";
-import { sound } from "./modules/soundEngine.js?v=1";
+import { sound } from "./modules/soundEngine.js?v=2";
 import {
   renderVotingScreen,
   renderVotedScreen,
@@ -419,6 +419,7 @@ function enviarDesenhoAtual() {
       }
 
       // O servidor confirmou o recebimento.
+      sound.sfxSubmit();
       showSubmittedCard();
     },
   );
@@ -509,9 +510,6 @@ socket.on("start-round", (data) => {
 
 // OUVINTE DO TEMPORIZADOR COM AUTO-SUBMIT
 socket.on("timer-tick", (timeLeft) => {
-  if (timeLeft <= 5 && timeLeft > 0 && !isPodium) {
-    sound.sfxTick();
-  }
   let timerEl = document.getElementById("game-timer");
 
   if (!timerEl) {
@@ -543,6 +541,11 @@ socket.on("timer-tick", (timeLeft) => {
   } else {
     timerEl.style.color = "#facc15";
     timerEl.style.borderColor = "#38bdf8";
+  }
+
+  // Bip nos últimos 5 segundos (usando !isGameOver para não travar no celular)
+  if (timeLeft <= 5 && timeLeft > 0 && !isGameOver) {
+    sound.sfxTick();
   }
 
   // Auto-submit no último segundo se ainda não enviou
@@ -762,8 +765,10 @@ socket.on("rejoined", (snap) => {
   hasJoined = true;
 
   if (snap.phase === "drawing") {
+    sound.playMusic("drawing");
     restoreDrawing(snap);
   } else if (snap.phase === "voting") {
+    sound.playMusic("voting");
     restoreVoting(snap);
   } else if (snap.phase === "reveal") {
     exibirTela("voting-screen");
@@ -777,9 +782,11 @@ socket.on("rejoined", (snap) => {
       `;
     }
   } else if (snap.phase === "game-over") {
+    sound.playMusic("podium");
     showGameOver(snap.leaderboard);
   } else {
     // Lobby: o update-lobby que o servidor envia em seguida preenche a tela de espera.
+    sound.playMusic("lobby");
     isGameStarted = false;
     isGameOver = false;
     exibirTela("waiting-screen");
