@@ -180,14 +180,16 @@ canvas {
   box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
 }
 
-/* --- FERRAMENTA BORRACHA --- */
+/* --- FERRAMENTAS: BORRACHA E BALDE --- */
 .tools-box {
   display: flex;
   justify-content: center;
+  gap: 10px;
   margin-bottom: 10px;
 }
 
-.eraser-btn {
+.eraser-btn,
+.bucket-btn {
   width: auto !important;
   padding: 8px 16px !important;
   font-size: 0.9rem !important;
@@ -197,7 +199,8 @@ canvas {
   color: #94a3b8 !important;
 }
 
-.eraser-btn.active {
+.eraser-btn.active,
+.bucket-btn.active {
   background: #e2e8f0 !important;
   color: #0f172a !important;
   font-weight: bold !important;
@@ -225,4 +228,33 @@ canvas {
   font-size: 1.6rem;
   background: #334155;
   flex: none;
+}
+
+/* --- BARRA DE AÇÕES (DESFAZER + ENVIAR) --- */
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 10px;
+  width: 100%;
+}
+
+.toolbar button {
+  flex: 1;
+}
+
+#undo-btn {
+  width: 52px;
+  height: 52px;
+  padding: 0;
+  border-radius: 50%;
+  background: #334155;
+  border: 1px solid #475569;
+  color: #ffffff;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
 }
