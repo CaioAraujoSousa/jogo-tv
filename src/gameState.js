@@ -397,6 +397,67 @@ class GameState {
     };
   }
 
+  getRevealData(roundNum) {
+    this.phase = "reveal";
+    this.currentVotingRound = roundNum;
+    return this.buildRevealData(roundNum);
+  }
+
+  peekRevealData() {
+    return this.buildRevealData(this.currentVotingRound);
+  }
+
+  buildRevealData(roundNum) {
+    const theme = this.matchThemes[roundNum - 1];
+    const roundDrawings = this.drawings[roundNum] || {};
+    const roundVotes = this.votes[roundNum] || {};
+    const pointsMap = [50, 30, 20];
+    const medalsMap = ["🥇", "🥈", "🥉"];
+
+    const cards = this.getCardOrder(roundNum).map((artistId, index) => {
+      const cardNumber = index + 1;
+      const artist = this.players.find((p) => p.id === artistId);
+
+      const voters = [];
+      let roundPoints = 0;
+
+      // Descobre quem votou neste desenho e em qual posição (1º, 2º ou 3º)
+      Object.entries(roundVotes).forEach(([voterId, voteList]) => {
+        if (!Array.isArray(voteList)) return;
+        const posIndex = voteList.indexOf(cardNumber);
+        if (posIndex !== -1 && posIndex < 3) {
+          const voter = this.players.find((p) => p.id === voterId);
+          const pts = pointsMap[posIndex];
+          roundPoints += pts;
+          if (voter) {
+            voters.push({
+              avatar: voter.avatar,
+              name: voter.name,
+              medal: medalsMap[posIndex],
+              points: pts,
+            });
+          }
+        }
+      });
+
+      return {
+        number: cardNumber,
+        color: COLOR_PALETTE[index % COLOR_PALETTE.length],
+        artistName: artist ? artist.name : "Jogador",
+        artistAvatar: artist ? artist.avatar : "🎨",
+        imageData: roundDrawings[artistId],
+        roundPoints,
+        voters,
+      };
+    });
+
+    return {
+      round: roundNum,
+      theme,
+      cards,
+    };
+  }
+
   // ---------- Reentrada de jogadores ----------
 
   // Cria um token secreto para o jogador entrar de novo depois de uma queda.

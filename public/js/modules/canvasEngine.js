@@ -226,7 +226,9 @@ export function initCanvas(
           .querySelectorAll(".color-btn")
           .forEach((b) => b.classList.remove("selected"));
       } else {
-        const hasSelected = paletteContainer.querySelector(".color-btn.selected");
+        const hasSelected = paletteContainer.querySelector(
+          ".color-btn.selected",
+        );
         if (!hasSelected) {
           const activeColorBtn = paletteContainer.querySelector(
             `[data-color="${currentColor}"]`,
@@ -241,16 +243,16 @@ export function initCanvas(
   if (paletteContainer) {
     paletteContainer.innerHTML = "";
     const colors = [
-      "#0f172a",
-      "#ffffff",
-      "#ef4444",
-      "#3b82f6",
-      "#22c55e",
-      "#f59e0b",
-      "#a855f7",
-      "#ec4899",
-      "#78350f",
-      "#ffd6d6",
+      "#0f172a", // 1. Preto (Neutro escuro)
+      "#ffffff", // 2. Branco (Neutro claro)
+      "#78350f", // 3. Marrom (Terroso)
+      "#ffd6d6", // 4. Pele / Rosa claro (Transição suave para os quentes)
+      "#ef4444", // 5. Vermelho (Quente)
+      "#f59e0b", // 6. Laranja / Amarelo (Quente)
+      "#22c55e", // 7. Verde (Transição / Círculo cromático)
+      "#3b82f6", // 8. Azul (Frio)
+      "#a855f7", // 9. Roxo (Frio / Violáceo)
+      "#ec4899", // 10. Rosa Pink (Fecha o ciclo voltando ao vermelho)
     ];
 
     colors.forEach((color, index) => {
@@ -338,7 +340,10 @@ export function initCanvas(
       sliderThumb.style.top = `${topPercent}%`;
 
       // Bolinha interna do botão principal (escala visual de 4px a 18px)
-      const visualDot = Math.max(4, Math.min(18, Math.round(currentLineWidth * 0.7)));
+      const visualDot = Math.max(
+        4,
+        Math.min(18, Math.round(currentLineWidth * 0.7)),
+      );
       sizePreviewDot.style.width = `${visualDot}px`;
       sizePreviewDot.style.height = `${visualDot}px`;
 
@@ -352,7 +357,10 @@ export function initCanvas(
       const rect = sliderTrack.getBoundingClientRect();
       const pad = 8; // Margem interna das extremidades
       const trackHeight = rect.height - pad * 2;
-      const relY = Math.max(0, Math.min(trackHeight, clientY - (rect.top + pad)));
+      const relY = Math.max(
+        0,
+        Math.min(trackHeight, clientY - (rect.top + pad)),
+      );
       const ratio = 1 - relY / trackHeight; // Invertido: topo = 1, base = 0
       currentLineWidth =
         Math.round((MIN_SIZE + ratio * (MAX_SIZE - MIN_SIZE)) * 2) / 2;

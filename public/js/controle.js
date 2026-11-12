@@ -568,6 +568,24 @@ socket.on("start-voting-round", (data) => {
   showVotingRound(data);
 });
 
+socket.on("reveal-voting-round", (data) => {
+  if (!hasJoined) return;
+  isGameStarted = true;
+  isGameOver = false;
+  exibirTela("voting-screen");
+
+  const votingScreen = document.getElementById("voting-screen");
+  if (votingScreen) {
+    votingScreen.innerHTML = `
+      <div class="card" style="margin-top: 40px;">
+        <h2 style="color: #facc15;">Olhe para a TV! 👀</h2>
+        <p style="color: #94a3b8;">Revelando os artistas e os votos da Rodada ${data.round}...</p>
+      </div>
+    `;
+    updateAbortMatchButton();
+  }
+});
+
 // FIM DE JOGO: monta a tela (usada pelo evento game-over e pela reentrada)
 function showGameOver(leaderboard) {
   isGameStarted = true;
@@ -735,6 +753,17 @@ socket.on("rejoined", (snap) => {
     restoreDrawing(snap);
   } else if (snap.phase === "voting") {
     restoreVoting(snap);
+  } else if (snap.phase === "reveal") {
+    exibirTela("voting-screen");
+    const votingScreen = document.getElementById("voting-screen");
+    if (votingScreen) {
+      votingScreen.innerHTML = `
+        <div class="card" style="margin-top: 40px;">
+          <h2 style="color: #facc15;">Olhe para a TV! 👀</h2>
+          <p style="color: #94a3b8;">Revelando os votos da rodada...</p>
+        </div>
+      `;
+    }
   } else if (snap.phase === "game-over") {
     showGameOver(snap.leaderboard);
   } else {

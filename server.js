@@ -139,10 +139,10 @@ function buildSnapshot(playerId) {
   } else if (gameState.phase === "voting") {
     snapshot.voting = gameState.peekVotingData();
     snapshot.hasVoted = gameState.hasVoted(playerId);
+  } else if (gameState.phase === "reveal") {
   } else if (gameState.phase === "game-over") {
     snapshot.leaderboard = gameState.peekLeaderboard();
   }
-
   return snapshot;
 }
 
@@ -340,6 +340,8 @@ io.on("connection", (socket) => {
       socket.emit("drawing-progress", drawingProgressData());
     } else if (gameState.phase === "voting") {
       socket.emit("start-voting-round", gameState.peekVotingData());
+    } else if (gameState.phase === "reveal") {
+      socket.emit("reveal-voting-round", gameState.peekRevealData());
     } else if (gameState.phase === "game-over") {
       socket.emit("game-over", gameState.peekLeaderboard());
     } else {
@@ -685,22 +687,33 @@ function handleVotingCompletion(roundNum) {
   isTransitioning = true;
   clearRoundTimer();
 
+  const revealData = gameState.getRevealData(roundNum);
+  io.emit("reveal-voting-round", revealData);
+
+  // Mostra quem desenhou e quem votou em quem por 6 segundos na TV
+  startRoundTimer(6, () => advanceAfterReveal(roundNum));
+}
+
+function advanceAfterReveal(roundNum) {
+  if (isTransitioning || gameState.phase !== "reveal") return;
+  isTransitioning = true;
+  clearRoundTimer();
+
   if (roundNum < 3) {
     const nextRound = roundNum + 1;
     const votingCards = gameState.getVotingCards(nextRound);
-
     io.emit("start-voting-round", votingCards);
-
-    startRoundTimer(30, () => handleVotingCompletion(roundNum + 1));
+    startRoundTimer(30, () => handleVotingCompletion(nextRound));
   } else if (roundNum === 3) {
     gameState.currentRound = 4;
     const roundData = gameState.getCurrentRoundData();
     io.emit("start-round", roundData);
     startRoundTimer(60, () => handleDrawingCompletion());
   } else if (roundNum >= 4 && roundNum < 6) {
-    const votingCards = gameState.getVotingCards(roundNum + 1);
+    const nextRound = roundNum + 1;
+    const votingCards = gameState.getVotingCards(nextRound);
     io.emit("start-voting-round", votingCards);
-    startRoundTimer(30, () => handleVotingCompletion(roundNum + 1));
+    startRoundTimer(30, () => handleVotingCompletion(nextRound));
   } else if (roundNum === 6) {
     const leaderboard = gameState.calculateFinalLeaderboard();
     gameState.phase = "game-over";

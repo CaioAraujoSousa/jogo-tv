@@ -317,6 +317,135 @@ socket.on("start-voting-round", (data) => {
   container.appendChild(gridDiv);
 });
 
+// FASE DE REVELAÇÃO (QUEM FEZ O QUÊ + QUEM VOTOU EM QUEM)
+socket.on("reveal-voting-round", (data) => {
+  isPodium = false;
+  isGameStarted = true;
+  exibirTelaTV("presentation-screen");
+
+  const container = document.getElementById("presentation-container");
+  container.innerHTML = "";
+
+  const headerDiv = document.createElement("div");
+  headerDiv.style.marginBottom = "25px";
+
+  const roundP = document.createElement("p");
+  roundP.style.color = "#facc15";
+  roundP.style.fontSize = "1.3rem";
+  roundP.style.fontWeight = "bold";
+  roundP.style.margin = "0";
+  roundP.textContent = `✨ Resultado da Rodada ${data.round} ✨`;
+
+  const themeH1 = document.createElement("h1");
+  themeH1.style.color = "#38bdf8";
+  themeH1.style.fontSize = "2.2rem";
+  themeH1.style.margin = "5px 0 10px 0";
+  themeH1.textContent = data.theme;
+
+  headerDiv.appendChild(roundP);
+  headerDiv.appendChild(themeH1);
+
+  const gridDiv = document.createElement("div");
+  gridDiv.style.display = "flex";
+  gridDiv.style.flexWrap = "wrap";
+  gridDiv.style.gap = "20px";
+  gridDiv.style.justifyContent = "center";
+  gridDiv.style.width = "100%";
+  gridDiv.style.maxWidth = "1100px";
+  gridDiv.style.margin = "0 auto";
+
+  data.cards.forEach((card) => {
+    const cardDiv = document.createElement("div");
+    cardDiv.style.background = "#1e293b";
+    cardDiv.style.padding = "15px";
+    cardDiv.style.borderRadius = "16px";
+    cardDiv.style.border = `3px solid ${card.color}`;
+    cardDiv.style.display = "flex";
+    cardDiv.style.flexDirection = "column";
+    cardDiv.style.alignItems = "center";
+    cardDiv.style.boxShadow = "0 8px 20px rgba(0,0,0,0.4)";
+    cardDiv.style.width = "230px";
+
+    // Cabeçalho com Artista e Pontos Ganhos
+    const artistHeader = document.createElement("div");
+    artistHeader.style.display = "flex";
+    artistHeader.style.alignItems = "center";
+    artistHeader.style.justifyContent = "space-between";
+    artistHeader.style.width = "100%";
+    artistHeader.style.marginBottom = "10px";
+
+    const artistInfo = document.createElement("div");
+    artistInfo.style.fontWeight = "bold";
+    artistInfo.style.fontSize = "1.05rem";
+    artistInfo.style.color = "#ffffff";
+    artistInfo.style.overflow = "hidden";
+    artistInfo.style.textOverflow = "ellipsis";
+    artistInfo.style.whiteSpace = "nowrap";
+    artistInfo.textContent = `${card.artistAvatar} ${card.artistName}`;
+
+    const pointsBadge = document.createElement("span");
+    pointsBadge.style.background = card.roundPoints > 0 ? "#22c55e" : "#475569";
+    pointsBadge.style.color = "#ffffff";
+    pointsBadge.style.fontWeight = "bold";
+    pointsBadge.style.fontSize = "0.9rem";
+    pointsBadge.style.padding = "3px 8px";
+    pointsBadge.style.borderRadius = "12px";
+    pointsBadge.textContent = `+${card.roundPoints} pts`;
+
+    artistHeader.appendChild(artistInfo);
+    artistHeader.appendChild(pointsBadge);
+
+    // Wrapper da imagem com os emojis de quem votou por cima
+    const imgWrapper = document.createElement("div");
+    imgWrapper.style.position = "relative";
+    imgWrapper.style.width = "100%";
+    imgWrapper.style.height = "240px";
+
+    const img = document.createElement("img");
+    img.src = card.imageData;
+    img.alt = `Desenho de ${card.artistName}`;
+    img.style.background = "white";
+    img.style.borderRadius = "10px";
+    img.style.width = "100%";
+    img.style.height = "100%";
+    img.style.objectFit = "contain";
+
+    // Container flutuante em cima do desenho (na parte inferior da imagem)
+    const votersOverlay = document.createElement("div");
+    votersOverlay.style.position = "absolute";
+    votersOverlay.style.bottom = "8px";
+    votersOverlay.style.left = "8px";
+    votersOverlay.style.right = "8px";
+    votersOverlay.style.display = "flex";
+    votersOverlay.style.flexWrap = "wrap";
+    votersOverlay.style.gap = "6px";
+    votersOverlay.style.justifyContent = "center";
+
+    card.voters.forEach((v) => {
+      const voterPill = document.createElement("span");
+      voterPill.style.background = "rgba(15, 23, 42, 0.88)";
+      voterPill.style.border = "1px solid #38bdf8";
+      voterPill.style.borderRadius = "20px";
+      voterPill.style.padding = "3px 8px";
+      voterPill.style.fontSize = "1rem";
+      voterPill.style.boxShadow = "0 2px 6px rgba(0,0,0,0.4)";
+      voterPill.title = `${v.name} (${v.points} pts)`;
+      voterPill.textContent = `${v.avatar}${v.medal}`;
+      votersOverlay.appendChild(voterPill);
+    });
+
+    imgWrapper.appendChild(img);
+    imgWrapper.appendChild(votersOverlay);
+
+    cardDiv.appendChild(artistHeader);
+    cardDiv.appendChild(imgWrapper);
+    gridDiv.appendChild(cardDiv);
+  });
+
+  container.appendChild(headerDiv);
+  container.appendChild(gridDiv);
+});
+
 // FIM DE JOGO (PÓDIO FINAL)
 socket.on("game-over", (leaderboard) => {
   isGameStarted = true;
