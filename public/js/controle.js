@@ -1,4 +1,5 @@
 import { initCanvas } from "./modules/canvasEngine.js?v=6";
+import { sound } from "./modules/soundEngine.js?v=1";
 import {
   renderVotingScreen,
   renderVotedScreen,
@@ -190,6 +191,7 @@ document.querySelectorAll(".avatar-option").forEach((item) => {
 
 // ENTRAR NO JOGO
 document.getElementById("join-btn").addEventListener("click", () => {
+  sound.playMusic("lobby");
   const name = document.getElementById("nickname").value.trim();
   if (!name) {
     document.getElementById("error-msg").innerText =
@@ -231,6 +233,7 @@ socket.on("error-message", (msg) => {
 
 // ATUALIZAÇÃO DO LOBBY & PROMOÇÃO DE ANFITRIÃO
 socket.on("update-lobby", (players) => {
+  sound.playMusic("lobby");
   // Filtra apenas quem continua conectado
   latestPlayers = players;
   updateTakenAvatars(players);
@@ -499,12 +502,16 @@ function showDrawingRound(data) {
 
 // FASE DE DESENHO (OUVINTE ÚNICO)
 socket.on("start-round", (data) => {
+  sound.playMusic("drawing");
   if (!hasJoined) return;
   showDrawingRound(data);
 });
 
 // OUVINTE DO TEMPORIZADOR COM AUTO-SUBMIT
 socket.on("timer-tick", (timeLeft) => {
+  if (timeLeft <= 5 && timeLeft > 0 && !isPodium) {
+    sound.sfxTick();
+  }
   let timerEl = document.getElementById("game-timer");
 
   if (!timerEl) {
@@ -564,11 +571,14 @@ function showVotingRound(data) {
 }
 
 socket.on("start-voting-round", (data) => {
+  sound.playMusic("voting");
   if (!hasJoined) return;
   showVotingRound(data);
 });
 
 socket.on("reveal-voting-round", (data) => {
+  const hasMasterpiece = data.cards && data.cards.some((c) => c.isMasterpiece);
+  sound.sfxReveal(hasMasterpiece);
   if (!hasJoined) return;
   isGameStarted = true;
   isGameOver = false;
@@ -642,11 +652,13 @@ function showGameOver(leaderboard) {
 }
 
 socket.on("game-over", (leaderboard) => {
+  sound.playMusic("podium");
   if (!hasJoined) return;
   showGameOver(leaderboard);
 });
 
 socket.on("back-to-lobby", (players) => {
+  sound.playMusic("lobby");
   isGameStarted = false;
   latestPlayers = players;
   isGameOver = false;

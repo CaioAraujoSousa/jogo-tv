@@ -440,9 +440,12 @@ class GameState {
         }
       });
 
-      const possibleVoters = Math.max(1, this.players.length - 1);
+      const activeOthers = this.players.filter(
+        (p) => !p.disconnected && p.id !== artistId,
+      ).length;
       const isMasterpiece =
-        voters.length === possibleVoters &&
+        activeOthers >= 1 &&
+        voters.length === activeOthers &&
         voters.every((v) => v.points === 50);
 
       return {

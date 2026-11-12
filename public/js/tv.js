@@ -1,8 +1,5 @@
 const socket = io();
-
-// ---------- CONEXÃO: avisa na tela e pede o estado atual ao (re)conectar ----------
-// Se a TV perder a conexão no meio da partida, ela pode perder um evento (ex.: o início
-// de uma votação). Por isso, a cada conexão ela pede ao servidor o estado atual.
+import { sound } from "./modules/soundEngine.js?v=1";
 function setTvConnectionBanner(text) {
   let banner = document.getElementById("tv-conn-banner");
 
@@ -138,6 +135,7 @@ renderSeats([]);
 
 // ATUALIZAÇÃO DO LOBBY
 socket.on("update-lobby", (players) => {
+  sound.playMusic("lobby");
   renderSeats(players);
 
   if (!isGameStarted) {
@@ -147,6 +145,7 @@ socket.on("update-lobby", (players) => {
 
 // FASE DE DESENHO
 socket.on("start-round", (data) => {
+  sound.playMusic("drawing");
   isPodium = false;
   isGameStarted = true;
   exibirTelaTV("game-screen");
@@ -180,6 +179,9 @@ socket.on("drawing-progress", (data) => {
 
 // TEMPORIZADOR VISUAL DA TV
 socket.on("timer-tick", (timeLeft) => {
+  if (timeLeft <= 5 && timeLeft > 0 && !isPodium) {
+    sound.sfxTick();
+  }
   if (isPodium) {
     const container = document.getElementById("presentation-container");
     if (!container) return;
@@ -230,6 +232,7 @@ socket.on("timer-tick", (timeLeft) => {
 
 // FASE DE VOTAÇÃO (APRESENTAÇÃO DOS DESENHOS)
 socket.on("start-voting-round", (data) => {
+  sound.playMusic("voting");
   isPodium = false;
   isGameStarted = true;
   exibirTelaTV("presentation-screen");
@@ -319,6 +322,8 @@ socket.on("start-voting-round", (data) => {
 
 // FASE DE REVELAÇÃO (QUEM FEZ O QUÊ + QUEM VOTOU EM QUEM)
 socket.on("reveal-voting-round", (data) => {
+  const hasMasterpiece = data.cards && data.cards.some((c) => c.isMasterpiece);
+  sound.sfxReveal(hasMasterpiece);
   isPodium = false;
   isGameStarted = true;
   exibirTelaTV("presentation-screen");
@@ -378,7 +383,8 @@ socket.on("reveal-voting-round", (data) => {
       const masterpieceBadge = document.createElement("div");
       masterpieceBadge.style.position = "absolute";
       masterpieceBadge.style.top = "-14px";
-      masterpieceBadge.style.background = "linear-gradient(90deg, #f59e0b, #facc15)";
+      masterpieceBadge.style.background =
+        "linear-gradient(90deg, #f59e0b, #facc15)";
       masterpieceBadge.style.color = "#0f172a";
       masterpieceBadge.style.fontWeight = "800";
       masterpieceBadge.style.fontSize = "0.82rem";
@@ -472,6 +478,7 @@ socket.on("reveal-voting-round", (data) => {
 
 // FIM DE JOGO (PÓDIO FINAL)
 socket.on("game-over", (leaderboard) => {
+  sound.playMusic("podium");
   isGameStarted = true;
   isPodium = true;
 
@@ -562,6 +569,7 @@ function createPillar(player, rank, type) {
 
 // RETORNO AO LOBBY
 socket.on("back-to-lobby", (players) => {
+  sound.playMusic("lobby");
   isPodium = false;
   isGameStarted = false;
 
