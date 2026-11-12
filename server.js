@@ -258,7 +258,6 @@ io.on("connection", (socket) => {
 
     const nameAlreadyUsed = gameState.players.some(
       (player) =>
-        !player.disconnected &&
         typeof player.name === "string" &&
         player.name.trim().toLocaleLowerCase("pt-BR") === normalizedName,
     );
@@ -269,7 +268,7 @@ io.on("connection", (socket) => {
     }
 
     const avatarAlreadyUsed = gameState.players.some(
-      (player) => !player.disconnected && player.avatar === avatar,
+      (player) => player.avatar === avatar,
     );
 
     if (avatarAlreadyUsed) {

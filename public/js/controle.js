@@ -170,9 +170,7 @@ function updateAbortMatchButton() {
 
 // Esmaece os avatares já usados por jogadores conectados.
 function updateTakenAvatars(players) {
-  const taken = new Set(
-    players.filter((p) => !p.disconnected).map((p) => p.avatar),
-  );
+  const taken = new Set(players.map((p) => p.avatar));
   document.querySelectorAll(".avatar-option").forEach((el) => {
     el.classList.toggle("taken", taken.has(el.getAttribute("data-avatar")));
   });
