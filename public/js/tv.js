@@ -356,16 +356,40 @@ socket.on("reveal-voting-round", (data) => {
 
   data.cards.forEach((card) => {
     const cardDiv = document.createElement("div");
-    cardDiv.style.background = "#1e293b";
-    cardDiv.style.padding = "15px";
+    cardDiv.style.position = "relative";
+    cardDiv.style.background = card.isMasterpiece
+      ? "linear-gradient(180deg, #422006 0%, #1e293b 100%)"
+      : "#1e293b";
+    cardDiv.style.padding = "18px 15px 15px 15px";
     cardDiv.style.borderRadius = "16px";
-    cardDiv.style.border = `3px solid ${card.color}`;
+    cardDiv.style.border = card.isMasterpiece
+      ? "3px solid #facc15"
+      : `3px solid ${card.color}`;
     cardDiv.style.display = "flex";
     cardDiv.style.flexDirection = "column";
     cardDiv.style.alignItems = "center";
-    cardDiv.style.boxShadow = "0 8px 20px rgba(0,0,0,0.4)";
+    cardDiv.style.boxShadow = card.isMasterpiece
+      ? "0 0 28px rgba(250, 204, 21, 0.55)"
+      : "0 8px 20px rgba(0,0,0,0.4)";
     cardDiv.style.width = "230px";
 
+    // Se recebeu apenas e todas as medalhas de ouro, exibe o selo no topo
+    if (card.isMasterpiece) {
+      const masterpieceBadge = document.createElement("div");
+      masterpieceBadge.style.position = "absolute";
+      masterpieceBadge.style.top = "-14px";
+      masterpieceBadge.style.background = "linear-gradient(90deg, #f59e0b, #facc15)";
+      masterpieceBadge.style.color = "#0f172a";
+      masterpieceBadge.style.fontWeight = "800";
+      masterpieceBadge.style.fontSize = "0.82rem";
+      masterpieceBadge.style.padding = "4px 12px";
+      masterpieceBadge.style.borderRadius = "20px";
+      masterpieceBadge.style.boxShadow = "0 4px 10px rgba(0,0,0,0.4)";
+      masterpieceBadge.style.textTransform = "uppercase";
+      masterpieceBadge.style.letterSpacing = "0.5px";
+      masterpieceBadge.textContent = "👑 Obra de arte!";
+      cardDiv.appendChild(masterpieceBadge);
+    }
     // Cabeçalho com Artista e Pontos Ganhos
     const artistHeader = document.createElement("div");
     artistHeader.style.display = "flex";

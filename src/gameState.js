@@ -440,6 +440,11 @@ class GameState {
         }
       });
 
+      const possibleVoters = Math.max(1, this.players.length - 1);
+      const isMasterpiece =
+        voters.length === possibleVoters &&
+        voters.every((v) => v.points === 50);
+
       return {
         number: cardNumber,
         color: COLOR_PALETTE[index % COLOR_PALETTE.length],
@@ -448,6 +453,7 @@ class GameState {
         imageData: roundDrawings[artistId],
         roundPoints,
         voters,
+        isMasterpiece,
       };
     });
 

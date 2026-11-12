@@ -9,7 +9,7 @@ export function initCanvas(
 
   // Estado das Ferramentas: 'brush' | 'bucket' | 'eraser'
   let currentColor = "#0f172a";
-  let currentLineWidth = 5; // Espessura inicial (varia de 2 a 26)
+  let currentLineWidth = 2; // Espessura inicial (varia de 2 a 26)
   const MIN_SIZE = 2;
   const MAX_SIZE = 26;
   let activeTool = "brush";
