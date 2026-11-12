@@ -339,27 +339,43 @@ socket.on("game-over", (leaderboard) => {
   const podiumWrapper = document.createElement("div");
   podiumWrapper.className = "podium-container";
 
-  const first = leaderboard[0];
-  const second = leaderboard[1];
-  const third = leaderboard[2];
+  // Posição "densa": empatados dividem a posição e a seguinte não pula número.
+  const ranked = [];
+  let position = 0;
+  let lastScore = null;
+  leaderboard.forEach((p) => {
+    if (p.score !== lastScore) {
+      position++;
+      lastScore = p.score;
+    }
+    ranked.push({ player: p, position });
+  });
 
-  if (second) podiumWrapper.appendChild(createPillar(second, 2, "silver"));
-  if (first) podiumWrapper.appendChild(createPillar(first, 1, "gold"));
-  if (third) podiumWrapper.appendChild(createPillar(third, 3, "bronze"));
+  const types = { 1: "gold", 2: "silver", 3: "bronze" };
+  const podiumPlayers = ranked.filter((r) => r.position <= 3);
+  const restPlayers = ranked.filter((r) => r.position > 3);
+
+  // Ordem visual: pratas, depois ouros, depois bronzes (ouro fica no meio).
+  [2, 1, 3].forEach((pos) => {
+    podiumPlayers
+      .filter((r) => r.position === pos)
+      .forEach((r) =>
+        podiumWrapper.appendChild(createPillar(r.player, pos, types[pos])),
+      );
+  });
 
   container.appendChild(titleH1);
   container.appendChild(podiumWrapper);
 
-  if (leaderboard.length > 3) {
+  if (restPlayers.length > 0) {
     const restList = document.createElement("div");
     restList.className = "rest-leaderboard";
-    for (let i = 3; i < leaderboard.length; i++) {
-      const p = leaderboard[i];
+    restPlayers.forEach((r) => {
       const row = document.createElement("div");
       row.className = "rest-row";
-      row.textContent = `${i + 1}º ${p.avatar} ${p.name} - ${p.score} pts`;
+      row.textContent = `${r.position}º ${r.player.avatar} ${r.player.name} - ${r.player.score} pts`;
       restList.appendChild(row);
-    }
+    });
     container.appendChild(restList);
   }
 });
