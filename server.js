@@ -574,17 +574,6 @@ io.on("connection", (socket) => {
       `Dispositivo desconectado: ${socket.id} | motivo: ${reason} | transporte: ${socket.conn.transport.name}`,
     );
 
-    console.log("[DEBUG DISCONNECT]", {
-      phase: gameState.phase,
-      currentRound: gameState.currentRound,
-      currentVotingRound: gameState.currentVotingRound,
-      isTransitioning,
-      players: gameState.players.map((player) => ({
-        name: player.name,
-        disconnected: player.disconnected,
-      })),
-    });
-
     const playerId = socket.data.playerId;
 
     // Aparelho que nunca entrou como jogador (ex.: a TV): nada a fazer.
@@ -700,17 +689,6 @@ function handleVotingCompletion(roundNum) {
   if (roundNum < 3) {
     const nextRound = roundNum + 1;
     const votingCards = gameState.getVotingCards(nextRound);
-
-    console.log("[DEBUG VOTING SERVER]", {
-      completedRound: roundNum,
-      requestedRound: nextRound,
-      payloadRound: votingCards?.round,
-      cardsCount: Array.isArray(votingCards?.cards)
-        ? votingCards.cards.length
-        : null,
-      phase: gameState.phase,
-      currentVotingRound: gameState.currentVotingRound,
-    });
 
     io.emit("start-voting-round", votingCards);
 

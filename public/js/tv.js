@@ -62,11 +62,15 @@ let isPodium = false;
 
 // QR CODE DA SALA
 document.getElementById("room-url").innerText = controlUrl;
-new QRCode(document.getElementById("qrcode"), {
-  text: controlUrl,
-  width: 150,
-  height: 150,
-});
+try {
+  new QRCode(document.getElementById("qrcode"), {
+    text: controlUrl,
+    width: 150,
+    height: 150,
+  });
+} catch (e) {
+  console.warn("QR Code indisponível:", e);
+}
 
 const seatsGrid = document.getElementById("seats-grid");
 
@@ -96,7 +100,7 @@ function renderSeats(players) {
       `Aguardando ${players[0].name} (Anfitrião) iniciar a partida...`;
   } else {
     document.getElementById("tv-status").innerText =
-      "Aponte a câmara do telemóvel para o QR Code para entrar na sala";
+      "Aponte a câmera do celular para o QR Code para entrar na sala";
   }
 
   for (let i = 0; i < 8; i++) {

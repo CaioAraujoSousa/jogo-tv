@@ -48,8 +48,10 @@ const LAST_LEAVES = args.includes("--last-leaves"); // todos saem de vez: a sala
 const LAST_RETURN = args.includes("--last-return"); // todos caem juntos e voltam: a sala NÃO pode ser limpa
 const EMPTY_MS = parseInt(getOpt("empty-ms", "30000"), 10); // precisa ser igual ao EMPTY_ROOM_MS do servidor
 const HOST_DROPS = args.includes("--host-drops"); // o anfitrião sai de vez no lobby: o próximo deve assumir
-const PLAYING = HOST_DROPS ? NUM_BOTS - 1 : NUM_BOTS; // quantos jogadores realmente jogam a partida
+const HUMAN = args.includes("--human"); // os bots entram e esperam; uma pessoa real inicia a partida
+const PLAYING = HOST_DROPS ? NUM_BOTS - 1 : HUMAN ? NUM_BOTS + 1 : NUM_BOTS;
 const REJOIN_MANY = args.includes("--rejoin-many"); // o mesmo bot cai e volta 3 vezes seguidas
+const HOST_DROPS_PLAYING = args.includes("--host-drops-playing"); // o anfitrião sai de vez na votação 2
 
 const DELAY_S = Math.min(
   parseFloat(
@@ -69,8 +71,8 @@ if (HOST_DROPS && NUM_BOTS < 3) {
   process.exit(1);
 }
 
-// Evita o 🦄 de propósito (ver BUG-03). Repetir avatar não é problema.
-const AVATARS = ["🦊", "🐼", "🐱", "🐶", "🦁", "🤖", "🚀", "🦊"];
+// O servidor não aceita avatar repetido, então são 8 bots = 8 avatares diferentes.
+const AVATARS = ["🦊", "🐼", "🐱", "🐶", "🦁", "🦄", "🤖", "🚀"];
 
 // Ordem esperada dos eventos de jogo, do ponto de vista de qualquer cliente.
 const EXPECTED = [
@@ -351,7 +353,9 @@ function createClient(label, index) {
       // A TV confere se recebeu todos os desenhos, com imagem.
       // Na queda durante o desenho, o bot que caiu pode ou não ter enviado o desenho da rodada 2.
       const expectedMin =
-        DROP_MODE === "drawing" || REJOIN_MANY ? PLAYING - 1 : PLAYING;
+        DROP_MODE === "drawing" || REJOIN_MANY || HOST_DROPS_PLAYING
+          ? PLAYING - 1
+          : PLAYING;
       const withImage = data.cards.filter(
         (card) =>
           typeof card.imageData === "string" &&
@@ -394,7 +398,15 @@ function createClient(label, index) {
     }
 
     if (ignoring()) return;
-
+    if (HOST_DROPS_PLAYING && c.isHostBot && data.round === 2 && !c.dropped) {
+      c.dropped = true;
+      c.leftForever = true;
+      console.log(
+        `[${elapsed()}] ${label} (anfitrião) SAIU DE VEZ na votação 2`,
+      );
+      socket.disconnect();
+      return;
+    }
     if (
       DROP_MODE === "voting" &&
       c.isDropTarget &&
@@ -417,6 +429,7 @@ function createClient(label, index) {
     // O anfitrião volta ao lobby, o que também deixa o servidor limpo para o próximo teste.
     const active = c.players.filter((p) => !p.disconnected);
     if (active.length > 0 && active[0].id === myId()) {
+      if (HOST_DROPS_PLAYING) c.returnedToLobby = true;
       setTimeout(() => socket.emit("return-to-lobby"), 500);
     }
   });
@@ -461,6 +474,7 @@ function finish() {
     DROP_MODE === "voting" ||
     LAST_RETURN ||
     HOST_DROPS ||
+    HOST_DROPS_PLAYING ||
     REJOIN_MANY;
   for (const c of clients) {
     if (skipDropper && c.dropped) continue; // o bot que caiu perdeu eventos enquanto estava fora
@@ -495,7 +509,11 @@ function finish() {
     }
 
     // Só confere a soma quando todos votaram em todas as rodadas.
-    if ((!DROP || DROP_MODE === "lobby") && !REJOIN_MANY) {
+    if (
+      (!DROP || DROP_MODE === "lobby") &&
+      !REJOIN_MANY &&
+      !HOST_DROPS_PLAYING
+    ) {
       // Cada votante distribui 50+30+20 (ou menos, se houver menos de 3 desenhos de outros).
       const perVoter = [50, 30, 20]
         .slice(0, Math.min(3, PLAYING - 1))
@@ -647,6 +665,27 @@ function finish() {
     }
   }
 
+  if (HOST_DROPS_PLAYING) {
+    console.log(
+      "\n9) Queda do anfitrião durante a partida (--host-drops-playing)",
+    );
+    const oldHost = clients.find((c) => c.isBot && c.leftForever);
+    const newHost = clients.find((c) => c.isBot && c.returnedToLobby);
+    if (!oldHost) {
+      fail("O anfitrião não chegou a sair (o cenário não aconteceu)");
+    } else if (newHost && newHost !== oldHost) {
+      ok(
+        `${newHost.label} assumiu como anfitrião e voltou ao lobby (${oldHost.label} tinha saído)`,
+      );
+    } else {
+      fail("Nenhum outro bot assumiu como anfitrião no pódio");
+    }
+    const ids = tv.leaderboard ? tv.leaderboard.map((p) => p.id) : [];
+    if (oldHost && ids.includes(oldHost.originalPlayerId))
+      ok(`${oldHost.label} continua no pódio, mesmo tendo saído`);
+    else fail("O anfitrião que saiu sumiu do pódio");
+  }
+
   if (failures.length > 0) {
     console.log(`\n❌ ${failures.length} PROBLEMA(S) ENCONTRADO(S)`);
   } else {
@@ -729,6 +768,13 @@ createClient("TV", null);
 const starter = setInterval(() => {
   const tvClient = clients.find((x) => !x.isBot);
   if (!tvClient || !tvClient.everConnected) return;
+  if (HUMAN) {
+    clearInterval(starter);
+    console.log(
+      "Modo --human: os bots entram e esperam. Inicie a partida pelo seu celular.",
+    );
+    return;
+  }
   const active = tvClient.players.filter((p) => !p.disconnected);
 
   // --host-drops: quando todos entraram, o anfitrião sai de vez e esperamos o próximo assumir.
@@ -768,6 +814,7 @@ const starter = setInterval(() => {
   clearInterval(starter);
   startRequested = true;
   newHostLabel = host.label;
+  host.isHostBot = true;
   if (DROP_MODE === "drawing" || DROP_MODE === "voting" || REJOIN_MANY) {
     // Nestes cenários, quem cai é um bot que NÃO é o anfitrião.
     const others = clients.filter((x) => x.isBot && x !== host);

@@ -612,8 +612,6 @@ socket.on("game-over", (leaderboard) => {
   showGameOver(leaderboard);
 });
 
-// RETORNO AO LOBBY
-// RETORNO AO LOBBY
 socket.on("back-to-lobby", (players) => {
   isGameStarted = false;
   latestPlayers = players;
