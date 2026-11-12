@@ -1,10 +1,15 @@
+// Mude para false se quiser que a MÚSICA toque só na TV e os celulares toquem apenas EFEITOS SONOROS (recomendado para salas com muitos celulares)
+const PLAY_MUSIC_ON_MOBILE = true;
+
 class SoundEngine {
   constructor() {
     this.ctx = null;
     this.isMuted = localStorage.getItem("game_muted") === "true";
     this.currentTrack = null;
-    this.loopTimer = null;
-    this.lastPlayedStep = -1;
+    this.schedulerTimer = null;
+    this.nextNoteTime = 0;
+    this.currentStep = 0;
+    this.isMobileControl = window.location.pathname.includes("controle");
     this.mountToggleButton();
     this.setupAutoUnlock();
   }
@@ -22,8 +27,8 @@ class SoundEngine {
   setupAutoUnlock() {
     const unlock = () => {
       this.initContext();
-      if (this.currentTrack && !this.loopTimer && !this.isMuted) {
-        this.startSyncedLoop(this.currentTrack);
+      if (this.currentTrack && !this.schedulerTimer && !this.isMuted) {
+        this.startScheduler(this.currentTrack);
       }
     };
     window.addEventListener("pointerdown", unlock, { passive: true });
@@ -65,42 +70,55 @@ class SoundEngine {
       if (this.isMuted) {
         this.stopLoopOnly();
       } else if (this.currentTrack) {
-        this.startSyncedLoop(this.currentTrack);
+        this.startScheduler(this.currentTrack);
       }
     });
 
     document.body.appendChild(btn);
   }
 
-  playTone(freq, duration, type = "sine", volume = 0.08, delay = 0) {
-    if (this.isMuted || !freq) return;
-    this.initContext();
-    if (!this.ctx || this.ctx.state !== "running") return;
+  // Agenda a nota exatamente no relógio de hardware da placa de som (nunca atrasa nem oscila)
+  scheduleToneAt(freq, duration, type, volume, exactStartTime) {
+    if (this.isMuted || !freq || !this.ctx || this.ctx.state !== "running") {
+      return;
+    }
 
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
-    const startTime = this.ctx.currentTime + delay;
+    const start = Math.max(this.ctx.currentTime, exactStartTime);
 
     osc.type = type;
-    osc.frequency.setValueAtTime(freq, startTime);
+    osc.frequency.setValueAtTime(freq, start);
 
-    gain.gain.setValueAtTime(0.0001, startTime);
-    gain.gain.exponentialRampToValueAtTime(volume, startTime + 0.015);
-    gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+    gain.gain.setValueAtTime(0.0001, start);
+    gain.gain.exponentialRampToValueAtTime(volume, start + 0.015);
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
 
     osc.connect(gain);
     gain.connect(this.ctx.destination);
 
-    osc.start(startTime);
-    osc.stop(startTime + duration + 0.02);
+    osc.start(start);
+    osc.stop(start + duration + 0.02);
+  }
+
+  playTone(freq, duration, type = "sine", volume = 0.08, delay = 0) {
+    if (this.isMuted || !freq) return;
+    this.initContext();
+    if (!this.ctx || this.ctx.state !== "running") return;
+    this.scheduleToneAt(
+      freq,
+      duration,
+      type,
+      volume,
+      this.ctx.currentTime + delay,
+    );
   }
 
   stopLoopOnly() {
-    if (this.loopTimer) {
-      clearInterval(this.loopTimer);
-      this.loopTimer = null;
+    if (this.schedulerTimer) {
+      clearInterval(this.schedulerTimer);
+      this.schedulerTimer = null;
     }
-    this.lastPlayedStep = -1;
   }
 
   stopMusic() {
@@ -110,9 +128,9 @@ class SoundEngine {
 
   getTracks() {
     return {
-      // 1. LOBBY: Bossa / Wii-Shop Groove (Melodia + Baixo marcado)
+      // 1. LOBBY: Bossa / Wii-Shop Groove
       lobby: {
-        stepMs: 220,
+        stepSec: 0.22,
         leadType: "triangle",
         leadVol: 0.06,
         bassType: "sine",
@@ -127,9 +145,9 @@ class SoundEngine {
         ],
       },
 
-      // 2. DESENHO: Arcade Upbeat (Criativo, rápido e envolvente)
+      // 2. DESENHO: Arcade Upbeat
       drawing: {
-        stepMs: 180,
+        stepSec: 0.18,
         leadType: "square",
         leadVol: 0.03,
         bassType: "triangle",
@@ -144,9 +162,9 @@ class SoundEngine {
         ],
       },
 
-      // 3. VOTAÇÃO: Game Show Funky / Kahoot Tension
+      // 3. VOTAÇÃO: Game Show Funky
       voting: {
-        stepMs: 210,
+        stepSec: 0.21,
         leadType: "sawtooth",
         leadVol: 0.028,
         bassType: "triangle",
@@ -161,9 +179,9 @@ class SoundEngine {
         ],
       },
 
-      // 4. PÓDIO: Fanfarra de Campeão (Acordes vibrantes)
+      // 4. PÓDIO: Fanfarra de Campeão
       podium: {
-        stepMs: 200,
+        stepSec: 0.2,
         leadType: "square",
         leadVol: 0.038,
         bassType: "triangle",
@@ -181,49 +199,77 @@ class SoundEngine {
   }
 
   playMusic(trackName) {
-    if (this.currentTrack === trackName && this.loopTimer) return;
+    if (this.isMobileControl && !PLAY_MUSIC_ON_MOBILE) return;
+    if (this.currentTrack === trackName && this.schedulerTimer) return;
     this.currentTrack = trackName;
-    this.startSyncedLoop(trackName);
+    this.startScheduler(trackName);
   }
 
-  startSyncedLoop(trackName) {
+  startScheduler(trackName) {
     this.stopLoopOnly();
     if (this.isMuted) return;
+    if (this.isMobileControl && !PLAY_MUSIC_ON_MOBILE) return;
+
     this.initContext();
+    if (!this.ctx || this.ctx.state !== "running") return;
 
     const track = this.getTracks()[trackName];
     if (!track) return;
 
     const len = track.melody.length;
+    const stepMs = track.stepSec * 1000;
 
-    // Sincronizado pelo relógio global (Date.now()):
-    // Todos os dispositivos tocam exatamente o mesmo compasso ao mesmo tempo
-    const checkStep = () => {
+    // Alinha o início do compasso pelo relógio, mas a partir daí usa o clock da placa de som!
+    const nowMs = Date.now();
+    this.currentStep = Math.floor(nowMs / stepMs) % len;
+    const remainderSec = (stepMs - (nowMs % stepMs)) / 1000;
+    this.nextNoteTime = this.ctx.currentTime + remainderSec;
+
+    const lookaheadSec = 0.12; // Agenda 120ms à frente no hardware para nunca oscilar
+
+    const schedule = () => {
       if (this.isMuted || !this.ctx || this.ctx.state !== "running") return;
 
-      const globalStep = Math.floor(Date.now() / track.stepMs);
-      if (globalStep === this.lastPlayedStep) return;
-      this.lastPlayedStep = globalStep;
-
-      const idx = globalStep % len;
-      const dur = (track.stepMs / 1000) * 0.85;
-
-      const leadFreq = track.melody[idx];
-      const bassFreq = track.bass[idx];
-
-      if (leadFreq > 0) {
-        this.playTone(leadFreq, dur, track.leadType, track.leadVol);
+      // Se a aba ficou em segundo plano e voltou, realinha o relógio sem engolir notas
+      if (this.nextNoteTime < this.ctx.currentTime - 0.2) {
+        this.nextNoteTime = this.ctx.currentTime + 0.05;
       }
-      if (bassFreq > 0) {
-        this.playTone(bassFreq, dur * 1.05, track.bassType, track.bassVol);
+
+      while (this.nextNoteTime < this.ctx.currentTime + lookaheadSec) {
+        const idx = this.currentStep % len;
+        const dur = track.stepSec * 0.85;
+
+        const leadFreq = track.melody[idx];
+        const bassFreq = track.bass[idx];
+
+        if (leadFreq > 0) {
+          this.scheduleToneAt(
+            leadFreq,
+            dur,
+            track.leadType,
+            track.leadVol,
+            this.nextNoteTime,
+          );
+        }
+        if (bassFreq > 0) {
+          this.scheduleToneAt(
+            bassFreq,
+            dur * 1.05,
+            track.bassType,
+            track.bassVol,
+            this.nextNoteTime,
+          );
+        }
+
+        this.nextNoteTime += track.stepSec;
+        this.currentStep = (this.currentStep + 1) % len;
       }
     };
 
-    checkStep();
-    this.loopTimer = setInterval(checkStep, 25);
+    schedule();
+    this.schedulerTimer = setInterval(schedule, 40);
   }
 
-  // Bip mais encorpado para os últimos 5 segundos
   sfxTick() {
     this.playTone(880, 0.07, "triangle", 0.12, 0);
     this.playTone(1760, 0.04, "sine", 0.06, 0.02);
