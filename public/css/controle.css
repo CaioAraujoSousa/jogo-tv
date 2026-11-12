@@ -210,3 +210,9 @@ canvas {
   font-size: 0.95rem;
   font-weight: 600;
 }
+
+.avatar-option.taken {
+  opacity: 0.25;
+  cursor: not-allowed;
+  filter: grayscale(1);
+}

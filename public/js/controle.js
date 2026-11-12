@@ -168,9 +168,20 @@ function updateAbortMatchButton() {
   }
 }
 
+// Esmaece os avatares já usados por jogadores conectados.
+function updateTakenAvatars(players) {
+  const taken = new Set(
+    players.filter((p) => !p.disconnected).map((p) => p.avatar),
+  );
+  document.querySelectorAll(".avatar-option").forEach((el) => {
+    el.classList.toggle("taken", taken.has(el.getAttribute("data-avatar")));
+  });
+}
+
 // SELEÇÃO DE AVATAR
 document.querySelectorAll(".avatar-option").forEach((item) => {
   item.addEventListener("click", (e) => {
+    if (e.target.classList.contains("taken")) return;
     document
       .querySelectorAll(".avatar-option")
       .forEach((a) => a.classList.remove("selected"));
@@ -224,6 +235,7 @@ socket.on("error-message", (msg) => {
 socket.on("update-lobby", (players) => {
   // Filtra apenas quem continua conectado
   latestPlayers = players;
+  updateTakenAvatars(players);
   const activePlayers = players.filter((p) => !p.disconnected);
   const me = players.find((p) => p.id === myPlayerId);
   hasJoined = !!me;
