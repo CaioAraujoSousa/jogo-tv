@@ -1,4 +1,4 @@
-import { initCanvas } from "./modules/canvasEngine.js?v=3";
+import { initCanvas } from "./modules/canvasEngine.js?v=4";
 import {
   renderVotingScreen,
   renderVotedScreen,
@@ -463,17 +463,18 @@ function showDrawingRound(data) {
   const toolbar = document.createElement("div");
   toolbar.className = "toolbar";
 
-  const clearBtn = document.createElement("button");
-  clearBtn.id = "clear-btn";
-  clearBtn.style.background = "#ef4444";
-  clearBtn.textContent = "Limpar Tudo";
+  const undoBtn = document.createElement("button");
+  undoBtn.id = "undo-btn";
+  undoBtn.type = "button";
+  undoBtn.setAttribute("aria-label", "Desfazer último traço");
+  undoBtn.textContent = "↩";
 
   const submitBtn = document.createElement("button");
   submitBtn.id = "submit-btn";
   submitBtn.style.background = "#22c55e";
   submitBtn.textContent = "Enviar Desenho";
 
-  toolbar.appendChild(clearBtn);
+  toolbar.appendChild(undoBtn);
   toolbar.appendChild(submitBtn);
 
   drawingScreen.appendChild(themeBox);
@@ -482,7 +483,7 @@ function showDrawingRound(data) {
   drawingScreen.appendChild(canvas);
   drawingScreen.appendChild(toolbar);
 
-  initCanvas(canvas, clearBtn, paletteBox, toolsBox);
+  initCanvas(canvas, undoBtn, paletteBox, toolsBox);
   isGameOver = false;
   updateAbortMatchButton();
 

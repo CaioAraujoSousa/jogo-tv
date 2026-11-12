@@ -12,6 +12,10 @@ export function initCanvas(
   let currentLineWidth = 2.5;
   let isEraser = false;
 
+  // Histórico de traços (cada item é uma foto do canvas antes do traço)
+  const history = [];
+  const MAX_HISTORY = 20;
+
   // Fundo Branco Inicial
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, canvasElement.width, canvasElement.height);
@@ -36,6 +40,10 @@ export function initCanvas(
   }
 
   function startDraw(e) {
+    history.push(
+      ctx.getImageData(0, 0, canvasElement.width, canvasElement.height),
+    );
+    if (history.length > MAX_HISTORY) history.shift();
     painting = true;
     const pos = getPos(e);
 
@@ -94,11 +102,11 @@ export function initCanvas(
     draw(e);
   });
 
-  // Botão Limpar Tudo
+  // Botão Desfazer (volta o último traço)
   if (clearBtn) {
     clearBtn.addEventListener("click", () => {
-      ctx.fillStyle = "#ffffff";
-      ctx.fillRect(0, 0, canvasElement.width, canvasElement.height);
+      const last = history.pop();
+      if (last) ctx.putImageData(last, 0, 0);
     });
   }
 

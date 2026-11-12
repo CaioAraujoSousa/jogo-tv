@@ -216,3 +216,13 @@ canvas {
   cursor: not-allowed;
   filter: grayscale(1);
 }
+
+#undo-btn {
+  width: 52px;
+  height: 52px;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 1.6rem;
+  background: #334155;
+  flex: none;
+}
