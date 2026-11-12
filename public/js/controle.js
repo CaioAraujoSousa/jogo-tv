@@ -1,4 +1,4 @@
-import { initCanvas } from "./modules/canvasEngine.js?v=5";
+import { initCanvas } from "./modules/canvasEngine.js?v=6";
 import {
   renderVotingScreen,
   renderVotedScreen,

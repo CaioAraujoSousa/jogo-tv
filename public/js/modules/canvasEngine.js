@@ -7,13 +7,14 @@ export function initCanvas(
   const ctx = canvasElement.getContext("2d", { willReadFrequently: true });
   let painting = false;
 
-  // Estado das Ferramentas
+  // Estado das Ferramentas: 'brush' | 'bucket' | 'eraser'
   let currentColor = "#0f172a";
-  let currentLineWidth = 2.5;
-  let isEraser = false;
-  let isBucket = false;
+  let currentLineWidth = 5; // Espessura inicial (varia de 2 a 26)
+  const MIN_SIZE = 2;
+  const MAX_SIZE = 26;
+  let activeTool = "brush";
 
-  // Histórico de traços (cada item é uma foto do canvas antes da ação)
+  // Histórico de traços
   const history = [];
   const MAX_HISTORY = 20;
 
@@ -40,7 +41,6 @@ export function initCanvas(
     };
   }
 
-  // Algoritmo Flood Fill (Balde de Tinta) com tolerância para bordas suaves
   function floodFill(startX, startY, fillHex) {
     const width = canvasElement.width;
     const height = canvasElement.height;
@@ -59,7 +59,6 @@ export function initCanvas(
 
     const fillRgb = hexToRgb(fillHex);
 
-    // Se a cor clicada já for praticamente igual à cor do balde, não faz nada
     if (
       Math.abs(startR - fillRgb.r) < 10 &&
       Math.abs(startG - fillRgb.g) < 10 &&
@@ -86,7 +85,6 @@ export function initCanvas(
       data[idx + 2] = fillRgb.b;
       data[idx + 3] = 255;
 
-      // Vizinhos: Direita, Esquerda, Baixo, Cima
       const neighbors = [];
       if (x + 1 < width) neighbors.push(pos + 1);
       if (x - 1 >= 0) neighbors.push(pos - 1);
@@ -128,10 +126,19 @@ export function initCanvas(
     };
   }
 
+  function closeSizePopup() {
+    if (!toolContainer) return;
+    const popup = toolContainer.querySelector(".size-popup");
+    const sizeBtn = toolContainer.querySelector(".size-btn");
+    if (popup) popup.classList.remove("open");
+    if (sizeBtn) sizeBtn.classList.remove("active");
+  }
+
   function startDraw(e) {
+    closeSizePopup();
     const pos = getPos(e);
 
-    if (isBucket) {
+    if (activeTool === "bucket") {
       floodFill(pos.x, pos.y, currentColor);
       return;
     }
@@ -139,10 +146,10 @@ export function initCanvas(
     saveHistory();
     painting = true;
 
+    const isEraser = activeTool === "eraser";
     ctx.strokeStyle = isEraser ? "#ffffff" : currentColor;
-    ctx.lineWidth = isEraser ? 14 : currentLineWidth;
+    ctx.lineWidth = currentLineWidth;
 
-    // Pingo imediato no toque
     ctx.beginPath();
     ctx.arc(pos.x, pos.y, ctx.lineWidth / 2, 0, Math.PI * 2);
     ctx.fillStyle = isEraser ? "#ffffff" : currentColor;
@@ -158,11 +165,12 @@ export function initCanvas(
   }
 
   function draw(e) {
-    if (!painting || isBucket) return;
+    if (!painting || activeTool === "bucket") return;
     const pos = getPos(e);
 
+    const isEraser = activeTool === "eraser";
     ctx.strokeStyle = isEraser ? "#ffffff" : currentColor;
-    ctx.lineWidth = isEraser ? 14 : currentLineWidth;
+    ctx.lineWidth = currentLineWidth;
 
     ctx.lineTo(pos.x, pos.y);
     ctx.stroke();
@@ -170,13 +178,11 @@ export function initCanvas(
     ctx.moveTo(pos.x, pos.y);
   }
 
-  // Eventos de Mouse
   canvasElement.addEventListener("mousedown", startDraw);
   canvasElement.addEventListener("mouseup", stopDraw);
   canvasElement.addEventListener("mouseleave", stopDraw);
   canvasElement.addEventListener("mousemove", draw);
 
-  // Eventos de Toque (Celular)
   canvasElement.addEventListener("touchstart", (e) => {
     e.preventDefault();
     startDraw(e);
@@ -194,19 +200,49 @@ export function initCanvas(
     draw(e);
   });
 
-  // Botão Desfazer (volta o último traço ou balde)
   if (clearBtn) {
     clearBtn.addEventListener("click", () => {
+      closeSizePopup();
       const last = history.pop();
       if (last) ctx.putImageData(last, 0, 0);
     });
   }
 
-  // Criar os botões da Paleta de Cores
+  function setActiveTool(toolName) {
+    activeTool = toolName;
+    if (!toolContainer) return;
+
+    const brushBtn = toolContainer.querySelector(".brush-btn");
+    const bucketBtn = toolContainer.querySelector(".bucket-btn");
+    const eraserBtn = toolContainer.querySelector(".eraser-btn");
+
+    if (brushBtn) brushBtn.classList.toggle("active", toolName === "brush");
+    if (bucketBtn) bucketBtn.classList.toggle("active", toolName === "bucket");
+    if (eraserBtn) eraserBtn.classList.toggle("active", toolName === "eraser");
+
+    if (paletteContainer) {
+      if (toolName === "eraser") {
+        paletteContainer
+          .querySelectorAll(".color-btn")
+          .forEach((b) => b.classList.remove("selected"));
+      } else {
+        const hasSelected = paletteContainer.querySelector(".color-btn.selected");
+        if (!hasSelected) {
+          const activeColorBtn = paletteContainer.querySelector(
+            `[data-color="${currentColor}"]`,
+          );
+          if (activeColorBtn) activeColorBtn.classList.add("selected");
+        }
+      }
+    }
+  }
+
+  // Paleta de 10 Cores
   if (paletteContainer) {
     paletteContainer.innerHTML = "";
     const colors = [
       "#0f172a",
+      "#ffffff",
       "#ef4444",
       "#3b82f6",
       "#22c55e",
@@ -214,20 +250,21 @@ export function initCanvas(
       "#a855f7",
       "#ec4899",
       "#78350f",
+      "#ffd6d6",
     ];
 
     colors.forEach((color, index) => {
       const btn = document.createElement("button");
       btn.type = "button";
+      btn.dataset.color = color;
       btn.className = "color-btn" + (index === 0 ? " selected" : "");
       btn.style.backgroundColor = color;
 
       btn.addEventListener("click", () => {
-        isEraser = false;
+        closeSizePopup();
         currentColor = color;
-        if (toolContainer) {
-          const eraserBtn = toolContainer.querySelector(".eraser-btn");
-          if (eraserBtn) eraserBtn.classList.remove("active");
+        if (activeTool === "eraser") {
+          setActiveTool("brush");
         }
         paletteContainer
           .querySelectorAll(".color-btn")
@@ -239,56 +276,135 @@ export function initCanvas(
     });
   }
 
-  // Criar os botões de Borracha e Balde lado a lado
+  // Botões de Ferramentas + Seletor de Espessura Vertical
   if (toolContainer) {
     toolContainer.innerHTML = "";
 
-    const eraserBtn = document.createElement("button");
-    eraserBtn.type = "button";
-    eraserBtn.className = "eraser-btn";
-    eraserBtn.textContent = "🧹 Borracha";
+    const brushBtn = document.createElement("button");
+    brushBtn.type = "button";
+    brushBtn.className = "brush-btn active";
+    brushBtn.textContent = "✏️ Pincel";
 
     const bucketBtn = document.createElement("button");
     bucketBtn.type = "button";
     bucketBtn.className = "bucket-btn";
     bucketBtn.textContent = "🪣 Balde";
 
-    eraserBtn.addEventListener("click", () => {
-      isEraser = !isEraser;
-      if (isEraser) {
-        isBucket = false;
-        bucketBtn.classList.remove("active");
-        eraserBtn.classList.add("active");
-        if (paletteContainer) {
-          paletteContainer
-            .querySelectorAll(".color-btn")
-            .forEach((b) => b.classList.remove("selected"));
-        }
-      } else {
-        eraserBtn.classList.remove("active");
-      }
+    const eraserBtn = document.createElement("button");
+    eraserBtn.type = "button";
+    eraserBtn.className = "eraser-btn";
+    eraserBtn.textContent = "🧹 Borracha";
+
+    // Container do botão de espessura + Pop-up vertical
+    const sizeWrapper = document.createElement("div");
+    sizeWrapper.className = "size-wrapper";
+
+    const sizeBtn = document.createElement("button");
+    sizeBtn.type = "button";
+    sizeBtn.className = "size-btn";
+    sizeBtn.setAttribute("aria-label", "Ajustar espessura do traço");
+
+    const sizePreviewDot = document.createElement("span");
+    sizePreviewDot.className = "size-preview-dot";
+    sizeBtn.appendChild(sizePreviewDot);
+
+    const sizePopup = document.createElement("div");
+    sizePopup.className = "size-popup";
+
+    // Trilha vertical com SVG afunilado (grosso em cima -> fino embaixo)
+    const sliderTrack = document.createElement("div");
+    sliderTrack.className = "size-slider-track";
+    sliderTrack.innerHTML = `
+      <svg class="size-wedge-svg" viewBox="0 0 28 120" preserveAspectRatio="none">
+        <polygon points="3,6 25,6 15.2,114 12.8,114" fill="#94a3b8" />
+        <circle cx="14" cy="6" r="11" fill="#94a3b8" />
+        <circle cx="14" cy="114" r="1.2" fill="#94a3b8" />
+      </svg>
+    `;
+
+    const sliderThumb = document.createElement("div");
+    sliderThumb.className = "size-slider-thumb";
+    sliderTrack.appendChild(sliderThumb);
+    sizePopup.appendChild(sliderTrack);
+
+    sizeWrapper.appendChild(sizeBtn);
+    sizeWrapper.appendChild(sizePopup);
+
+    // Atualiza a posição da bolinha e o tamanho do ícone no botão
+    function updateSizeUI() {
+      const ratio = (currentLineWidth - MIN_SIZE) / (MAX_SIZE - MIN_SIZE);
+      // Topo (0%) = Grosso (ratio 1) | Base (100%) = Fino (ratio 0)
+      const topPercent = (1 - ratio) * 100;
+      sliderThumb.style.top = `${topPercent}%`;
+
+      // Bolinha interna do botão principal (escala visual de 4px a 18px)
+      const visualDot = Math.max(4, Math.min(18, Math.round(currentLineWidth * 0.7)));
+      sizePreviewDot.style.width = `${visualDot}px`;
+      sizePreviewDot.style.height = `${visualDot}px`;
+
+      // Bolinha que corre na trilha também acompanha sutilmente a grossura
+      const thumbSize = Math.round(14 + ratio * 8);
+      sliderThumb.style.width = `${thumbSize}px`;
+      sliderThumb.style.height = `${thumbSize}px`;
+    }
+
+    function setSizeFromPointer(clientY) {
+      const rect = sliderTrack.getBoundingClientRect();
+      const pad = 8; // Margem interna das extremidades
+      const trackHeight = rect.height - pad * 2;
+      const relY = Math.max(0, Math.min(trackHeight, clientY - (rect.top + pad)));
+      const ratio = 1 - relY / trackHeight; // Invertido: topo = 1, base = 0
+      currentLineWidth =
+        Math.round((MIN_SIZE + ratio * (MAX_SIZE - MIN_SIZE)) * 2) / 2;
+      updateSizeUI();
+    }
+
+    let draggingSize = false;
+
+    sliderTrack.addEventListener("pointerdown", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      draggingSize = true;
+      sliderTrack.setPointerCapture(e.pointerId);
+      setSizeFromPointer(e.clientY);
     });
 
+    sliderTrack.addEventListener("pointermove", (e) => {
+      if (!draggingSize) return;
+      e.preventDefault();
+      setSizeFromPointer(e.clientY);
+    });
+
+    const endDrag = () => {
+      draggingSize = false;
+    };
+    sliderTrack.addEventListener("pointerup", endDrag);
+    sliderTrack.addEventListener("pointercancel", endDrag);
+
+    sizeBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const isOpen = sizePopup.classList.toggle("open");
+      sizeBtn.classList.toggle("active", isOpen);
+    });
+
+    brushBtn.addEventListener("click", () => {
+      closeSizePopup();
+      setActiveTool("brush");
+    });
     bucketBtn.addEventListener("click", () => {
-      isBucket = !isBucket;
-      if (isBucket) {
-        isEraser = false;
-        eraserBtn.classList.remove("active");
-        bucketBtn.classList.add("active");
-        // Garante que a cor atual continue destacada na paleta
-        if (paletteContainer) {
-          const hasSelected = paletteContainer.querySelector(".color-btn.selected");
-          if (!hasSelected) {
-            const firstColor = paletteContainer.querySelector(".color-btn");
-            if (firstColor) firstColor.classList.add("selected");
-          }
-        }
-      } else {
-        bucketBtn.classList.remove("active");
-      }
+      closeSizePopup();
+      setActiveTool("bucket");
+    });
+    eraserBtn.addEventListener("click", () => {
+      closeSizePopup();
+      setActiveTool("eraser");
     });
 
-    toolContainer.appendChild(eraserBtn);
+    updateSizeUI();
+
+    toolContainer.appendChild(brushBtn);
     toolContainer.appendChild(bucketBtn);
+    toolContainer.appendChild(eraserBtn);
+    toolContainer.appendChild(sizeWrapper);
   }
 }

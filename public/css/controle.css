@@ -230,14 +230,15 @@ canvas {
   flex: none;
 }
 
-/* --- BARRA DE AÇÕES (DESFAZER + ENVIAR) --- */
+/* --- BARRA DE AÇÕES ALINHADA COM O CANVAS (310px) --- */
 .toolbar {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 12px;
-  margin-top: 10px;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 10px auto 0 auto;
   width: 100%;
+  max-width: 310px;
 }
 
 .toolbar button {
@@ -245,10 +246,10 @@ canvas {
 }
 
 #undo-btn {
-  width: 52px;
-  height: 52px;
+  width: 48px;
+  height: 48px;
   padding: 0;
-  border-radius: 50%;
+  border-radius: 12px;
   background: #334155;
   border: 1px solid #475569;
   color: #ffffff;
@@ -256,5 +257,119 @@ canvas {
   display: flex;
   align-items: center;
   justify-content: center;
-  line-height: 1;
+}
+
+/* --- FERRAMENTAS: PINCEL, BALDE, BORRACHA E ESPESSURA --- */
+.tools-box {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+  position: relative;
+}
+
+.brush-btn,
+.bucket-btn,
+.eraser-btn {
+  width: auto !important;
+  padding: 8px 12px !important;
+  font-size: 0.82rem !important;
+  background: #334155 !important;
+  border: 1px solid #475569 !important;
+  border-radius: 20px !important;
+  color: #94a3b8 !important;
+}
+
+.brush-btn.active,
+.bucket-btn.active,
+.eraser-btn.active,
+.size-btn.active {
+  background: #e2e8f0 !important;
+  color: #0f172a !important;
+  font-weight: bold !important;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.4);
+}
+
+/* Botão circular que mostra a espessura atual */
+.size-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.size-btn {
+  width: 36px !important;
+  height: 36px !important;
+  padding: 0 !important;
+  border-radius: 50% !important;
+  background: #334155 !important;
+  border: 1px solid #475569 !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.size-preview-dot {
+  background: #ffffff;
+  border-radius: 50%;
+  display: block;
+  transition: width 0.1s, height 0.1s;
+}
+
+.size-btn.active .size-preview-dot {
+  background: #0f172a;
+}
+
+/* Pop-up vertical em pé (abre sobre/abaixo à direita) */
+.size-popup {
+  display: none;
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 46px;
+  height: 155px;
+  background: #1e293b;
+  border: 1px solid #38bdf8;
+  border-radius: 24px;
+  padding: 14px 0;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.65);
+  z-index: 2000;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  touch-action: none;
+}
+
+.size-popup.open {
+  display: flex;
+}
+
+.size-slider-track {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  cursor: pointer;
+  touch-action: none;
+}
+
+.size-wedge-svg {
+  width: 28px;
+  height: 100%;
+  pointer-events: none;
+}
+
+.size-slider-thumb {
+  position: absolute;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 18px;
+  height: 18px;
+  background: #facc15;
+  border: 2.5px solid #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+  pointer-events: none;
 }
