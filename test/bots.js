@@ -80,14 +80,20 @@ const EXPECTED = [
   "start-round 2",
   "start-round 3",
   "start-voting-round 1",
+  "reveal-voting-round 1",
   "start-voting-round 2",
+  "reveal-voting-round 2",
   "start-voting-round 3",
+  "reveal-voting-round 3",
   "start-round 4",
   "start-round 5",
   "start-round 6",
   "start-voting-round 4",
+  "reveal-voting-round 4",
   "start-voting-round 5",
+  "reveal-voting-round 5",
   "start-voting-round 6",
+  "reveal-voting-round 6",
   "game-over",
   "back-to-lobby",
 ];
@@ -417,6 +423,10 @@ function createClient(label, index) {
       return;
     }
     voteLater(data, false);
+  });
+
+  socket.on("reveal-voting-round", (data) => {
+    record(`reveal-voting-round ${data.round}`);
   });
 
   socket.on("game-over", (leaderboard) => {
