@@ -233,7 +233,7 @@ socket.on("error-message", (msg) => {
 
 // ATUALIZAÇÃO DO LOBBY & PROMOÇÃO DE ANFITRIÃO
 socket.on("update-lobby", (players) => {
-  sound.playMusic("lobby");
+  if (!isGameStarted) sound.playMusic("lobby");
   // Filtra apenas quem continua conectado
   latestPlayers = players;
   updateTakenAvatars(players);
