@@ -58,6 +58,7 @@ window.addEventListener("online", resyncTvNow);
 const controlUrl = window.location.origin + "/controle.html";
 let isGameStarted = false;
 let isPodium = false;
+let isReveal = false;
 
 // QR CODE DA SALA
 document.getElementById("room-url").innerText = controlUrl;
@@ -147,6 +148,7 @@ socket.on("update-lobby", (players) => {
 
 // FASE DE DESENHO
 socket.on("start-round", (data) => {
+  isReveal = false;
   sound.playMusic("drawing");
   isPodium = false;
   isGameStarted = true;
@@ -181,7 +183,7 @@ socket.on("drawing-progress", (data) => {
 
 // TEMPORIZADOR VISUAL DA TV
 socket.on("timer-tick", (timeLeft) => {
-  if (timeLeft <= 5 && timeLeft > 0 && !isPodium) {
+  if (timeLeft <= 5 && timeLeft > 0 && !isPodium && !isReveal) {
     sound.sfxTick();
   }
   if (isPodium) {
@@ -235,6 +237,7 @@ socket.on("timer-tick", (timeLeft) => {
 
 // FASE DE VOTAÇÃO (APRESENTAÇÃO DOS DESENHOS)
 socket.on("start-voting-round", (data) => {
+  isReveal = false;
   sound.playMusic("voting");
   isPodium = false;
   isGameStarted = true;
@@ -325,6 +328,7 @@ socket.on("start-voting-round", (data) => {
 
 // FASE DE REVELAÇÃO (QUEM FEZ O QUÊ + QUEM VOTOU EM QUEM)
 socket.on("reveal-voting-round", (data) => {
+  isReveal = true;
   const hasMasterpiece = data.cards && data.cards.some((c) => c.isMasterpiece);
   sound.sfxReveal(hasMasterpiece);
   isPodium = false;
@@ -482,6 +486,7 @@ socket.on("reveal-voting-round", (data) => {
 
 // FIM DE JOGO (PÓDIO FINAL)
 socket.on("game-over", (leaderboard) => {
+  isReveal = false;
   sound.playMusic("podium");
   isGameStarted = true;
   isPodium = true;
@@ -581,6 +586,7 @@ function createPillar(player, rank, type) {
 
 // RETORNO AO LOBBY
 socket.on("back-to-lobby", (players) => {
+  isReveal = false;
   sound.playMusic("lobby");
   isPodium = false;
   isGameStarted = false;
