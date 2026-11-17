@@ -17,7 +17,7 @@ Jogo multiplayer de desenho e votação, estilo jogo de festa. A **TV (ou comput
 ## 📜 Regras
 - De **2 a 8 jogadores**. Só é possível entrar durante o lobby.
 - Sequência fixa: Desenho 1, 2, 3 → Votação 1, 2, 3 → Desenho 4, 5, 6 → Votação 4, 5, 6 → Pódio.
-- Cada rodada tem um tema diferente (6 por partida).
+- Cada rodada tem um tema diferente (6 por partida), gerado combinando personagem, ação, objeto e lugar, como "Um pirata tomando banho na lua". Os temas não se repetem dentro da mesma partida.
 - Cada jogador vota em até 3 desenhos: **1º lugar = 50 pts, 2º = 30 pts, 3º = 20 pts**.
 - A ordem dos desenhos é embaralhada, então ninguém sabe de quem é cada um.
 - Empates dividem a mesma posição no pódio.
@@ -43,7 +43,7 @@ jogo-tv/
 ├── server.js            # servidor, eventos e timers
 ├── src/
 │   ├── gameState.js     # estado do jogo, votos e pontuação
-│   └── themes.js        # temas aleatórios
+│   └── themes.js        # gerador de temas combinatórios
 ├── public/
 │   ├── index.html       # tela da TV
 │   ├── controle.html    # tela do celular
@@ -87,6 +87,7 @@ node test/bots.js 4 --kb=200 # desenhos pesados
 Cenários disponíveis: `--drop-lobby`, `--drop`, `--drop-voting`, `--tv-reload`, `--no-return`, `--last-leaves`, `--last-return`, `--host-drops`, `--host-drops-playing`, `--rejoin-many` e `--human` (você joga junto com os bots).
 
 > Os bots testam a comunicação (eventos Socket.IO), não a aparência das telas.
+> Uma partida completa com bots leva cerca de 40 segundos (inclui a revelação dos votos).
 
 ## 📄 Licença
 Distribuído sob a licença MIT. Veja o arquivo [LICENSE](LICENSE).
