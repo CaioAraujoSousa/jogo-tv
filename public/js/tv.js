@@ -1,4 +1,4 @@
-import { sound } from "./modules/soundEngine.js?v=2";
+import { sound } from "./modules/soundEngine.js?v=4";
 
 const socket = io();
 

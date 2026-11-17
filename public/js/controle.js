@@ -1,5 +1,5 @@
 import { initCanvas } from "./modules/canvasEngine.js?v=6";
-import { sound } from "./modules/soundEngine.js?v=2";
+import { sound } from "./modules/soundEngine.js?v=4";
 import {
   renderVotingScreen,
   renderVotedScreen,
